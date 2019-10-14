@@ -1,14 +1,14 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.0.0                                               --
+-- Version: 1.0.1                                               --
 -- WoW Game Version: 8.2.5                                      --
 -- Author: Millán - C'Thun                                      --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
 -- ------------------------------------------------------------ --
 
-GreyOnCooldown = LibStub("AceAddon-3.0"):NewAddon("GreyOnCooldown", "AceConsole-3.0");
+GreyOnCooldown = LibStub("AceAddon-3.0"):NewAddon("GreyOnCooldown", "AceConsole-3.0")
 
 local AceConfig = LibStub("AceConfig-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
@@ -22,7 +22,7 @@ function GreyOnCooldown:OnEvent(event, ...) -- functions created in "object:meth
 end
 GreyOnCooldown.frame:SetScript("OnEvent", GreyOnCooldown.OnEvent)
 
-local L = LibStub("AceLocale-3.0"):GetLocale("GreyOnCooldown");
+local L = LibStub("AceLocale-3.0"):GetLocale("GreyOnCooldown")
 
 local _G = _G
 local _
@@ -37,7 +37,9 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.0.0"
+GreyOnCooldown.VERSION = "1.0.1"
+GreyOnCooldown.AddonBartender4IsPresent = false
+GreyOnCooldown.Bartender4ButtonsTable = {}
 
 -- First function fired
 function GreyOnCooldown:OnInitialize()
@@ -163,52 +165,86 @@ end
 
 function GreyOnCooldown:MainFunction()
 	GreyOnCooldown:HookGreyOnCooldownIcons()
+	GreyOnCooldown:CheckAddonBartender4()
+end
+
+-- Function to fast-check if Bartender4 addon is present
+function GreyOnCooldown:CheckAddonBartender4()
+	if (self.AddonBartender4IsPresent) then
+		return true
+	else
+		if ((BINDING_HEADER_Bartender4 == nil) or (BINDING_NAME_BTTOGGLEACTIONBARLOCK == nil) or (Bartender4 == nil) or (Bartender4.ActionBar == nil)) then
+			return false
+		else
+			if (not Bartender4.ActionBar.GREYONCOOLDOWN_BT4_HOOKED) then
+				hooksecurefunc(Bartender4.ActionBar, 'ApplyConfig', GreyOnCooldown.HookBartender4GreyOnCooldownIcons)
+				Bartender4.ActionBar.GREYONCOOLDOWN_BT4_HOOKED = true
+			end
+			self.AddonBartender4IsPresent = true
+			return true
+		end
+	end
+end
+
+-- Function to hook to 'Bartender4.ActionBar.ApplyConfig' to reconfigure all BT4Buttons when Bartender4 ActionBars are loaded or modified
+function GreyOnCooldown:HookBartender4GreyOnCooldownIcons()
+	for i = 1, 120 do
+		if (not GreyOnCooldown.Bartender4ButtonsTable[i]) then
+			GreyOnCooldown.Bartender4ButtonsTable[i] = _G["BT4Button"..i]
+			local button = GreyOnCooldown.Bartender4ButtonsTable[i]
+			if (button and (not button.GREYONCOOLDOWN_BT4_HOOKED)) then
+				-- Hook to 'GetCooldown' (BT4Button) function because we can't hook the local 'UpdateCooldown' (BT4Button) function
+				hooksecurefunc(button, 'GetCooldown', ActionButtonGreyOnCooldown_UpdateCooldown)
+				button.GREYONCOOLDOWN_BT4_HOOKED = true
+			end
+		end
+	end
 end
 
 -- Function to desaturate the entire action icon when the spell is on cooldown
 function GreyOnCooldown:HookGreyOnCooldownIcons()
 	if (not GREYONCOOLDOWN_HOOKED) then
 		function ActionButtonGreyOnCooldown_UpdateCooldown(self, expectedUpdate)
-			local icon = self.icon;
-			local action = self.action
+			local icon = self.icon
+			local action = GreyOnCooldown:CheckAddonBartender4() and self._state_action or self.action
 			if (icon and action) then
-				local start, duration = GetActionCooldown(action);
+				local start, duration = GetActionCooldown(action)
 				if (duration >= GreyOnCooldown.db.profile.minDuration) then
 					if ((not self.onCooldown) or (self.onCooldown == 0)) then
-						local nextTime = start + duration - GetTime() - 1.0;
+						local nextTime = start + duration - GetTime() - 1.0
 						if (nextTime < -1.0) then
-							nextTime = 0.05;
+							nextTime = 0.05
 						elseif (nextTime < 0) then
-							nextTime = -nextTime / 2;
+							nextTime = -nextTime / 2
 						end
 						C_Timer.After(nextTime, function()
-							ActionButtonGreyOnCooldown_UpdateCooldown(self, true);
-						end);
+							ActionButtonGreyOnCooldown_UpdateCooldown(self,  action)
+						end)
 					elseif (expectedUpdate) then
 						if ((not self.onCooldown) or (self.onCooldown < start + duration)) then
-							self.onCooldown = start + duration;
+							self.onCooldown = start + duration
 						end
-						local nextTime = 0.05;
-						local timeRemains = self.onCooldown-GetTime();
+						local nextTime = 0.05
+						local timeRemains = self.onCooldown-GetTime()
 						if (timeRemains > 0.31) then
-							nextTime = timeRemains / 5;
+							nextTime = timeRemains / 5
 						elseif (timeRemains < 0) then
-							nextTime = 0.05;
+							nextTime = 0.05
 						end
 						C_Timer.After(nextTime, function()
-							ActionButtonGreyOnCooldown_UpdateCooldown(self, true);
-						end);
+							ActionButtonGreyOnCooldown_UpdateCooldown(self, action)
+						end)
 					end
 					if ((not self.onCooldown) or (self.onCooldown < start + duration)) then
-						self.onCooldown = start + duration;
+						self.onCooldown = start + duration
 					end
 					if (not icon:IsDesaturated()) then
-						icon:SetDesaturated(true);
+						icon:SetDesaturated(true)
 					end
 				else
-					self.onCooldown = 0;
+					self.onCooldown = 0
 					if (icon:IsDesaturated()) then
-						icon:SetDesaturated(false);
+						icon:SetDesaturated(false)
 					end
 				end
 			end

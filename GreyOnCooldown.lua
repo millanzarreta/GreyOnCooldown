@@ -1,7 +1,7 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.0.1                                               --
+-- Version: 1.0.2                                               --
 -- WoW Game Version: 1.13.2                                     --
 -- Author: Millán - C'Thun                                      --
 --                                                              --
@@ -37,7 +37,7 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.0.1"
+GreyOnCooldown.VERSION = "1.0.2"
 GreyOnCooldown.AddonBartender4IsPresent = false
 GreyOnCooldown.Bartender4ButtonsTable = {}
 
@@ -180,6 +180,12 @@ function GreyOnCooldown:CheckAddonBartender4()
 				hooksecurefunc(Bartender4.ActionBar, 'ApplyConfig', GreyOnCooldown.HookBartender4GreyOnCooldownIcons)
 				Bartender4.ActionBar.GREYONCOOLDOWN_BT4_HOOKED = true
 			end
+			local LibActionButton = LibStub:GetLibrary("LibActionButton-1.0", true)
+			if LibActionButton then
+				LibActionButton.RegisterCallback(self, "OnButtonUpdate", function(event, button)
+					ActionButtonGreyOnCooldown_UpdateCooldown(button)
+				end)
+			end
 			self.AddonBartender4IsPresent = true
 			return true
 		end
@@ -218,7 +224,7 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 							nextTime = -nextTime / 2
 						end
 						C_Timer.After(nextTime, function()
-							ActionButtonGreyOnCooldown_UpdateCooldown(self,  action)
+							ActionButtonGreyOnCooldown_UpdateCooldown(self, action)
 						end)
 					elseif (expectedUpdate) then
 						if ((not self.onCooldown) or (self.onCooldown < start + duration)) then

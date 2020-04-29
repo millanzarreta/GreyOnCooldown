@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.0.3                                               --
--- WoW Game Version: 1.13.3                                     --
+-- Version: 1.0.4                                               --
+-- WoW Game Version: 1.13.4                                     --
 -- Author: Millán - C'Thun                                      --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -37,7 +37,7 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.0.3"
+GreyOnCooldown.VERSION = "1.0.4"
 GreyOnCooldown.AddonBartender4IsPresent = false
 GreyOnCooldown.Bartender4ButtonsTable = {}
 
@@ -108,7 +108,7 @@ function GreyOnCooldown:SlashCommand(str)
 	elseif (cmd == "minduration") then
 		if (arg1 ~= "") then
 			if (arg1 == "default") then
-				GreyOnCooldown.db.profile.minDuration = GreyOnCooldown.defaults.profile.minDuration
+				GreyOnCooldown.db.profile.minDuration = GreyOnCooldown.db.defaults.profile.minDuration
 			else
 				local newValue = tonumber(arg1)
 				if (newValue ~= nil) then

@@ -81,7 +81,7 @@ GreyOnCooldown.optionsTable = {
 					type = "execute",
 					name = L["Default"],
 					desc = L["DefaultDesc"],
-					func  = function() GreyOnCooldown.db.profile.minDuration = GreyOnCooldown.defaults.profile.minDuration end
+					func  = function() GreyOnCooldown.db.profile.minDuration = GreyOnCooldown.db.defaults.profile.minDuration end
 				}
 			}
 		}

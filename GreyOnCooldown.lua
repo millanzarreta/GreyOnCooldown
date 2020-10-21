@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.0.4                                               --
--- WoW Game Version: 8.3.0                                      --
+-- Version: 1.0.5                                               --
+-- WoW Game Version: 9.0.1                                      --
 -- Author: Millán - C'Thun                                      --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -37,7 +37,7 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.0.4"
+GreyOnCooldown.VERSION = "1.0.5"
 GreyOnCooldown.AddonBartender4IsPresent = false
 GreyOnCooldown.Bartender4ButtonsTable = {}
 
@@ -216,6 +216,9 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 			if (icon and action) then
 				local start, duration = GetActionCooldown(action)
 				if (duration >= GreyOnCooldown.db.profile.minDuration) then
+					if start > 3085367 and start <= 4294967.295 then
+						start = start - 4294967.296
+					end
 					if ((not self.onCooldown) or (self.onCooldown == 0)) then
 						local nextTime = start + duration - GetTime() - 1.0
 						if (nextTime < -1.0) then
@@ -223,9 +226,11 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 						elseif (nextTime < 0) then
 							nextTime = -nextTime / 2
 						end
-						C_Timer.After(nextTime, function()
-							ActionButtonGreyOnCooldown_UpdateCooldown(self, action)
-						end)
+						if nextTime <= 4294967.295 then
+							C_Timer.After(nextTime, function()
+								ActionButtonGreyOnCooldown_UpdateCooldown(self, action)
+							end)
+						end
 					elseif (expectedUpdate) then
 						if ((not self.onCooldown) or (self.onCooldown < start + duration)) then
 							self.onCooldown = start + duration
@@ -237,9 +242,11 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 						elseif (timeRemains < 0) then
 							nextTime = 0.05
 						end
-						C_Timer.After(nextTime, function()
-							ActionButtonGreyOnCooldown_UpdateCooldown(self, action)
-						end)
+						if nextTime <= 4294967.295 then
+							C_Timer.After(nextTime, function()
+								ActionButtonGreyOnCooldown_UpdateCooldown(self, action)
+							end)
+						end
 					end
 					if ((not self.onCooldown) or (self.onCooldown < start + duration)) then
 						self.onCooldown = start + duration

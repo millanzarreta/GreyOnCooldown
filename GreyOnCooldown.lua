@@ -1,9 +1,9 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.0.5                                               --
--- WoW Game Version: 1.13.5                                     --
--- Author: Millán - C'Thun                                      --
+-- Version: 1.0.6                                               --
+-- WoW Game Version: 1.13.6                                     --
+-- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
 -- ------------------------------------------------------------ --
@@ -37,7 +37,7 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.0.5"
+GreyOnCooldown.VERSION = "1.0.6"
 GreyOnCooldown.AddonBartender4IsPresent = false
 GreyOnCooldown.Bartender4ButtonsTable = {}
 

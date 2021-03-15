@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.0.6                                               --
--- WoW Game Version: 9.0.2                                      --
+-- Version: 1.0.7                                               --
+-- WoW Game Version: 9.0.5                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -37,7 +37,7 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.0.6"
+GreyOnCooldown.VERSION = "1.0.7"
 GreyOnCooldown.AddonBartender4IsPresent = false
 GreyOnCooldown.Bartender4ButtonsTable = {}
 
@@ -210,6 +210,7 @@ end
 -- Function to desaturate the entire action icon when the spell is on cooldown
 function GreyOnCooldown:HookGreyOnCooldownIcons()
 	if (not GREYONCOOLDOWN_HOOKED) then
+		local UpdateFuncCache = {}
 		function ActionButtonGreyOnCooldown_UpdateCooldown(self, expectedUpdate)
 			local icon = self.icon
 			local action = GreyOnCooldown:CheckAddonBartender4() and self._state_action or self.action
@@ -227,9 +228,12 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 							nextTime = -nextTime / 2
 						end
 						if nextTime <= 4294967.295 then
-							C_Timer.After(nextTime, function()
-								ActionButtonGreyOnCooldown_UpdateCooldown(self, action)
-							end)
+							local func = UpdateFuncCache[self]
+							if not func then
+								func = function() ActionButtonGreyOnCooldown_UpdateCooldown(self, true) end
+								UpdateFuncCache[self] = func
+							end
+							C_Timer.After(nextTime, func)
 						end
 					elseif (expectedUpdate) then
 						if ((not self.onCooldown) or (self.onCooldown < start + duration)) then
@@ -243,9 +247,12 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 							nextTime = 0.05
 						end
 						if nextTime <= 4294967.295 then
-							C_Timer.After(nextTime, function()
-								ActionButtonGreyOnCooldown_UpdateCooldown(self, action)
-							end)
+							local func = UpdateFuncCache[self]
+							if not func then
+								func = function() ActionButtonGreyOnCooldown_UpdateCooldown(self, true) end
+								UpdateFuncCache[self] = func
+							end
+							C_Timer.After(nextTime, func)
 						end
 					end
 					if ((not self.onCooldown) or (self.onCooldown < start + duration)) then

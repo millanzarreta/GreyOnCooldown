@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.0.7                                               --
--- WoW Game Version: 9.0.5                                      --
+-- Version: 1.0.8                                               --
+-- WoW Game Version: 9.1.0                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -37,9 +37,11 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.0.7"
+GreyOnCooldown.VERSION = "1.0.8"
 GreyOnCooldown.AddonBartender4IsPresent = false
 GreyOnCooldown.Bartender4ButtonsTable = {}
+GreyOnCooldown.AddonConsolePortIsPresent = false
+GreyOnCooldown.ConsolePortButtonsTable = {}
 
 -- First function fired
 function GreyOnCooldown:OnInitialize()
@@ -147,7 +149,7 @@ function GreyOnCooldown:OnDisable()
 	DEFAULT_CHAT_FRAME:AddMessage('|cffd78900' .. L['GreyOnCooldown'] .. ' v' .. GreyOnCooldown.VERSION .. '|r ' .. L['disabled'])
 end
 
---Show Options Menu
+-- Show Options Menu
 function GreyOnCooldown:ShowConfig(category)
 	-- Call twice to workaround a bug in Blizzard's function
 	InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.profiles)
@@ -163,9 +165,11 @@ function GreyOnCooldown:ShowConfig(category)
 	end
 end
 
+-- GreyOnCooldown MainFunction
 function GreyOnCooldown:MainFunction()
 	GreyOnCooldown:HookGreyOnCooldownIcons()
 	GreyOnCooldown:CheckAddonBartender4()
+	GreyOnCooldown:CheckAddonConsolePort()
 end
 
 -- Function to fast-check if Bartender4 addon is present
@@ -178,6 +182,7 @@ function GreyOnCooldown:CheckAddonBartender4()
 		else
 			if (not Bartender4.ActionBar.GREYONCOOLDOWN_BT4_HOOKED) then
 				hooksecurefunc(Bartender4.ActionBar, 'ApplyConfig', GreyOnCooldown.HookBartender4GreyOnCooldownIcons)
+				self:HookBartender4GreyOnCooldownIcons()
 				Bartender4.ActionBar.GREYONCOOLDOWN_BT4_HOOKED = true
 			end
 			local LibActionButton = LibStub:GetLibrary("LibActionButton-1.0", true)
@@ -192,16 +197,110 @@ function GreyOnCooldown:CheckAddonBartender4()
 	end
 end
 
--- Function to hook to 'Bartender4.ActionBar.ApplyConfig' to reconfigure all BT4Buttons when Bartender4 ActionBars are loaded or modified
+-- Dummy function to replace GetCooldown function from ActionButtons
+local function GreyOnCooldown_ActionButtonGetCooldown(self)
+	if (self._state_type == "action") then
+		ActionButtonGreyOnCooldown_UpdateCooldown(self)
+		return GetActionCooldown(self._state_action)
+	elseif (self._state_type == "spell") then
+		ActionButtonGreyOnCooldown_UpdateCooldown(self)
+		return GetSpellCooldown(self._state_action)
+	elseif (self._state_type == "item") then
+		return GetItemCooldown(self._state_action:match("^item:(%d+)"))
+	else
+		return 0, 0, 0
+	end
+end
+
+-- Function to reconfigure all BT4Buttons when Bartender4 ActionBars are loaded or modified
 function GreyOnCooldown:HookBartender4GreyOnCooldownIcons()
 	for i = 1, 120 do
-		if (not GreyOnCooldown.Bartender4ButtonsTable[i]) then
-			GreyOnCooldown.Bartender4ButtonsTable[i] = _G["BT4Button"..i]
-			local button = GreyOnCooldown.Bartender4ButtonsTable[i]
-			if (button and (not button.GREYONCOOLDOWN_BT4_HOOKED)) then
-				-- Hook to 'GetCooldown' (BT4Button) function because we can't hook the local 'UpdateCooldown' (BT4Button) function
-				hooksecurefunc(button, 'GetCooldown', ActionButtonGreyOnCooldown_UpdateCooldown)
+		local button = _G["BT4Button"..i]
+		if ((button ~= nil) and (not GreyOnCooldown.Bartender4ButtonsTable[i])) then
+			GreyOnCooldown.Bartender4ButtonsTable[i] = button
+			if (not button.GREYONCOOLDOWN_BT4_HOOKED) then
+				-- Replace 'GetCooldown' (BT4Button) function because we can't hook the local 'UpdateCooldown' (BT4Button) function
+				button.GetCooldown = GreyOnCooldown_ActionButtonGetCooldown
 				button.GREYONCOOLDOWN_BT4_HOOKED = true
+			end
+		end
+	end
+end
+
+-- Function to fast-check if ConsolePort addon is present
+function GreyOnCooldown:CheckAddonConsolePort()
+	if (self.AddonConsolePortIsPresent) then
+		return true
+	else
+		if ((ConsolePort == nil) or (ConsolePortBar == nil) or (CPActionButtonMixin == nil)) then
+			return false
+		else
+			if (not ConsolePortBar.GREYONCOOLDOWN_CONSOLEPORT_HOOKED) then
+				hooksecurefunc(CPActionButtonMixin, 'SetIcon', function(self, icon) ActionButtonGreyOnCooldown_UpdateCooldown(self) end)
+				hooksecurefunc(ConsolePortBar, 'OnLoad', GreyOnCooldown.HookConsolePortGreyOnCooldownIcons)
+				self:HookConsolePortGreyOnCooldownIcons()
+				ConsolePortBar.GREYONCOOLDOWN_CONSOLEPORT_HOOKED = true
+			end
+			self.frame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
+			self.frame:RegisterEvent("LOSS_OF_CONTROL_ADDED")
+			self.frame:RegisterEvent("LOSS_OF_CONTROL_UPDATE")
+			self.frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+			self.AddonConsolePortIsPresent = true
+			return true
+		end
+	end
+end
+
+-- Function to reconfigure all ConsolePortActionButtons when ConsolePort ActionBars are loaded or modified
+function GreyOnCooldown:HookConsolePortGreyOnCooldownIcons()
+	local mods = { "", "_SHIFT", "_CTRL", "_CTRL-SHIFT" }
+	for bindName in ConsolePort:GetBindings() do
+		for _, modSuf in ipairs(mods) do
+			local buttonName = "CPB_"..bindName..modSuf
+			if (not GreyOnCooldown.ConsolePortButtonsTable[buttonName]) then
+				GreyOnCooldown.ConsolePortButtonsTable[buttonName] = _G[buttonName]
+			end
+		end
+	end
+end
+
+-- ACTIONBAR_UPDATE_COOLDOWN Event Handler
+function GreyOnCooldown:ACTIONBAR_UPDATE_COOLDOWN()
+	if (GreyOnCooldown:CheckAddonConsolePort()) then
+		for _, button in pairs(GreyOnCooldown.ConsolePortButtonsTable) do
+			ActionButtonGreyOnCooldown_UpdateCooldown(button)
+		end
+	end
+end
+
+-- LOSS_OF_CONTROL_ADDED Event Handler
+function GreyOnCooldown:LOSS_OF_CONTROL_ADDED()
+	if (GreyOnCooldown:CheckAddonConsolePort()) then
+		for _, button in pairs(GreyOnCooldown.ConsolePortButtonsTable) do
+			ActionButtonGreyOnCooldown_UpdateCooldown(button)
+		end
+	end
+end
+
+-- LOSS_OF_CONTROL_UPDATE Event Handler
+function GreyOnCooldown:LOSS_OF_CONTROL_UPDATE()
+	if (GreyOnCooldown:CheckAddonConsolePort()) then
+		for _, button in pairs(GreyOnCooldown.ConsolePortButtonsTable) do
+			ActionButtonGreyOnCooldown_UpdateCooldown(button)
+		end
+	end
+end
+
+-- SPELL_ACTIVATION_OVERLAY_GLOW_HIDE Event Handler
+function GreyOnCooldown:SPELL_ACTIVATION_OVERLAY_GLOW_HIDE(argSpellId)
+	if (GreyOnCooldown:CheckAddonConsolePort()) then
+		for _, button in pairs(GreyOnCooldown.ConsolePortButtonsTable) do
+			if (button._state_action and type(button._state_action)~="table") then
+				local actionType, id = GetActionInfo(button._state_action)
+				local spellId = ((actionType == 'spell') and id) or ((actionType == 'macro') and select(3, GetMacroSpell(id))) or nil
+				if (spellId == argSpellId) then
+					ActionButtonGreyOnCooldown_UpdateCooldown(button)
+				end
 			end
 		end
 	end
@@ -213,9 +312,15 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 		local UpdateFuncCache = {}
 		function ActionButtonGreyOnCooldown_UpdateCooldown(self, expectedUpdate)
 			local icon = self.icon
-			local action = GreyOnCooldown:CheckAddonBartender4() and self._state_action or self.action
-			if (icon and action) then
-				local start, duration = GetActionCooldown(action)
+			local spellID = ((GreyOnCooldown:CheckAddonBartender4() or GreyOnCooldown:CheckAddonConsolePort()) and (self._state_type == "spell")) and self._state_action or self.spellID
+			local action = (GreyOnCooldown:CheckAddonBartender4() or GreyOnCooldown:CheckAddonConsolePort()) and self._state_action or self.action
+			if (icon and (action and type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string")) then
+				local start, duration
+				if (spellID) then
+					start, duration = GetSpellCooldown(spellID)
+				else
+					start, duration = GetActionCooldown(action)
+				end
 				if (duration >= GreyOnCooldown.db.profile.minDuration) then
 					if start > 3085367 and start <= 4294967.295 then
 						start = start - 4294967.296

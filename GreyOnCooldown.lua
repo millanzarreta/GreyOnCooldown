@@ -2,7 +2,7 @@
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
 -- Version: 1.0.8                                               --
--- WoW Game Version: 1.13.7                                     --
+-- WoW Game Version: 2.5.1                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --

@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.0.8                                               --
--- WoW Game Version: 9.1.0                                      --
+-- Version: 1.0.9                                               --
+-- WoW Game Version: 9.1.5                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -37,7 +37,7 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.0.8"
+GreyOnCooldown.VERSION = "1.0.9"
 GreyOnCooldown.AddonBartender4IsPresent = false
 GreyOnCooldown.Bartender4ButtonsTable = {}
 GreyOnCooldown.AddonConsolePortIsPresent = false
@@ -314,7 +314,7 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 			local icon = self.icon
 			local spellID = ((GreyOnCooldown:CheckAddonBartender4() or GreyOnCooldown:CheckAddonConsolePort()) and (self._state_type == "spell")) and self._state_action or self.spellID
 			local action = (GreyOnCooldown:CheckAddonBartender4() or GreyOnCooldown:CheckAddonConsolePort()) and self._state_action or self.action
-			if (icon and (action and type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string")) then
+			if (icon and ((action and type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string"))) then
 				local start, duration
 				if (spellID) then
 					start, duration = GetSpellCooldown(spellID)

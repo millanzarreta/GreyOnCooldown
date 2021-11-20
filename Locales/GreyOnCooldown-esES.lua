@@ -4,7 +4,7 @@ if not L then return end
 L[''] = true
 L['GreyOnCooldown'] = true
 L['Version'] = 'Version'
-L['Author: Millán-C\'Thun'] = 'Autor: Millán-C\'Thun'
+L['Author: Millán-Sanguino'] = 'Autor: Millán-Sanguino'
 L['Enable'] = 'Activar'
 L['Enable GreyOnCooldown'] = 'Activar GreyOnCooldown'
 L['Hide'] = 'Ocultar'

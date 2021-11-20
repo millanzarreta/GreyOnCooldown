@@ -1,7 +1,7 @@
-## Interface: 11307
+## Interface: 11401
 ## Title: GreyOnCooldown
 ## Author: millanzarreta
-## Version: 1.0.8
+## Version: 1.0.9
 ## Notes: Shows the action bar icons desaturated when they are on cooldown
 ## Notes-esES: Muestra los iconos de la barra de acción desaturados cuando se encuentren en tiempo de reutilización
 ## X-Category: Action Bars
@@ -11,7 +11,7 @@
 ## LoadOnDemand: 0
 ## SavedVariables: GreyOnCooldown_DB
 ## OptionalDeps: Ace3
-## X-Curse-Packaged-Version: 1.0.8
+## X-Curse-Packaged-Version: 1.0.9
 ## X-Curse-Project-Name: GreyOnCooldown
 ## X-Curse-Project-ID: GreyOnCooldown
 ## X-Curse-Repository-ID: GreyOnCooldown-mainline

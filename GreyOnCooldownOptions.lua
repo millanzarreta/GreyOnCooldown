@@ -19,7 +19,7 @@ GreyOnCooldown.optionsTable = {
 				authorD = {
 					order = 2,
 					type = "description",
-					name = '\124cfffb5e26' .. L['Author: Millán-C\'Thun'] .. '\124r'
+					name = '\124cfffb5e26' .. L['Author: Millán-Sanguino'] .. '\124r'
 				},
 				Spacer1 = {
 					type = "description",

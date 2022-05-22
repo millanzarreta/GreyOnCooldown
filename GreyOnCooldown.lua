@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.0.9                                               --
--- WoW Game Version: 2.5.2                                      --
+-- Version: 1.1.0                                               --
+-- WoW Game Version: 2.5.4                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -32,12 +32,13 @@ local STANDARD_EPSILON = 0.0001
 GreyOnCooldown.defaults = {
 	profile = {
 		enabled = true,
+		disabledConsoleStatusMessages = false,
 		minDuration = 2.01
 	}
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.0.9"
+GreyOnCooldown.VERSION = "1.1.0"
 GreyOnCooldown.AddonBartender4IsPresent = false
 GreyOnCooldown.Bartender4ButtonsTable = {}
 GreyOnCooldown.AddonConsolePortIsPresent = false
@@ -142,11 +143,15 @@ function GreyOnCooldown:ShowHelp()
 end
 
 function GreyOnCooldown:OnEnable()
-	DEFAULT_CHAT_FRAME:AddMessage('|cffd78900' .. L['GreyOnCooldown'] .. ' v' .. GreyOnCooldown.VERSION .. '|r ' .. L['enabled'])
+	if not(GreyOnCooldown.db.profile.disabledConsoleStatusMessages) then
+		DEFAULT_CHAT_FRAME:AddMessage('|cffd78900' .. L['GreyOnCooldown'] .. ' v' .. GreyOnCooldown.VERSION .. '|r ' .. L['enabled'])
+	end
 end
 
 function GreyOnCooldown:OnDisable()
-	DEFAULT_CHAT_FRAME:AddMessage('|cffd78900' .. L['GreyOnCooldown'] .. ' v' .. GreyOnCooldown.VERSION .. '|r ' .. L['disabled'])
+	if not(GreyOnCooldown.db.profile.disabledConsoleStatusMessages) then
+		DEFAULT_CHAT_FRAME:AddMessage('|cffd78900' .. L['GreyOnCooldown'] .. ' v' .. GreyOnCooldown.VERSION .. '|r ' .. L['disabled'])
+	end
 end
 
 -- Show Options Menu
@@ -326,6 +331,7 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 						start = start - 4294967.296
 					end
 					if ((not self.onCooldown) or (self.onCooldown == 0)) then
+						self.onCooldown = start + duration
 						local nextTime = start + duration - GetTime() - 1.0
 						if (nextTime < -1.0) then
 							nextTime = 0.05
@@ -340,8 +346,8 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 							end
 							C_Timer.After(nextTime, func)
 						end
-					elseif (expectedUpdate) then
-						if ((not self.onCooldown) or (self.onCooldown < start + duration)) then
+					elseif (expectedUpdate or (self.onCooldown > start + duration + 0.05)) then
+						if (self.onCooldown ~= start + duration) then
 							self.onCooldown = start + duration
 						end
 						local nextTime = 0.05
@@ -359,9 +365,6 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 							end
 							C_Timer.After(nextTime, func)
 						end
-					end
-					if ((not self.onCooldown) or (self.onCooldown < start + duration)) then
-						self.onCooldown = start + duration
 					end
 					if (not icon:IsDesaturated()) then
 						icon:SetDesaturated(true)

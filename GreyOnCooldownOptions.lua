@@ -60,8 +60,19 @@ GreyOnCooldown.optionsTable = {
 					order = 5,
 					name = L['General Settings']
 				},
-				minDuration = {
+				disabledConsoleStatusMessages = {
 					order = 6,
+					type = "toggle",
+					name = L['DisableConsoleStatusMessages'],
+					desc = L['DisableConsoleStatusMessagesDesc'],
+					width = "double",
+					get = function() return GreyOnCooldown.db.profile.disabledConsoleStatusMessages end,
+					set = function(_,value)
+						GreyOnCooldown.db.profile.disabledConsoleStatusMessages = value
+					end
+				},
+				minDuration = {
+					order = 7,
 					type = "range",
 					width = "double",
 					min = 0.01,
@@ -77,7 +88,7 @@ GreyOnCooldown.optionsTable = {
 					end
 				},
 				minDurationToDefault = {
-					order = 7,
+					order = 8,
 					type = "execute",
 					name = L["Default"],
 					desc = L["DefaultDesc"],

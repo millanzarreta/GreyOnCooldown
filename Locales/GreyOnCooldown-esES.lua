@@ -18,6 +18,8 @@ L['ReloadUI'] = 'ReloadUI'
 
 L["Default"] = 'Por defecto'
 L['DefaultDesc'] = 'Establece la opción a su valor por defecto'
+L['DisableConsoleStatusMessages'] = 'Deshabilitar los mensajes de estado de la consola'
+L['DisableConsoleStatusMessagesDesc'] = 'Marca esta opción para evitar que se muestren los mensajes de estado en la consola'
 L['minDuration'] = 'minDuration'
 L['minDurationDesc'] = 'Establece el valor mínimo (en segundos) del cooldown para ser desaturado'
 L['RELOADUI_MSG'] = '|cffffd200GreyOnCooldown|r\n\n|cffff0000ReloadUI:|r Para aplicar esta acción es necesario recargar la inferfaz. Si deseas seguir con esta operación, pulsa \'Aceptar\', de lo contrario pulsa \'Cancelar\' o la tecla \'Escape\''

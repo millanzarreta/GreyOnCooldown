@@ -18,6 +18,8 @@ L['ReloadUI'] = true
 
 L["Default"] = true
 L['DefaultDesc'] = 'Set option to the default value'
+L['DisableConsoleStatusMessages'] = 'Disable console status messages'
+L['DisableConsoleStatusMessagesDesc'] = 'Check this option to prevent the console status messages from being displayed'
 L['minDuration'] = true
 L['minDurationDesc'] = 'Set the minimum value (in seconds) of the cooldown to be desaturated'
 L['RELOADUI_MSG'] = '|cffffd200GreyOnCooldown|r\n\n|cffff0000ReloadUI:|r To apply this action an interface reload is needed. If you wish to continue with this operation, push \'Accept\', otherwise push \'Cancel\' or the \'Escape\' key'

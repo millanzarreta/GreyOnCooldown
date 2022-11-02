@@ -2,7 +2,7 @@
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
 -- Version: 1.1.1                                               --
--- WoW Game Version: 10.0.0                                     --
+-- WoW Game Version: 3.4.0                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -33,7 +33,7 @@ GreyOnCooldown.defaults = {
 	profile = {
 		enabled = true,
 		disabledConsoleStatusMessages = false,
-		minDuration = 1.51
+		minDuration = 2.01
 	}
 }
 

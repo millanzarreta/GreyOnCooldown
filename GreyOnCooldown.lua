@@ -219,7 +219,7 @@ end
 
 -- Function to reconfigure all BT4Buttons when Bartender4 ActionBars are loaded or modified
 function GreyOnCooldown:HookBartender4GreyOnCooldownIcons()
-	for i = 1, 120 do
+	for i = 1, 180 do
 		local button = _G["BT4Button"..i]
 		if ((button ~= nil) and (not GreyOnCooldown.Bartender4ButtonsTable[i])) then
 			GreyOnCooldown.Bartender4ButtonsTable[i] = button

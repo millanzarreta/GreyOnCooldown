@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.1.1                                               --
--- WoW Game Version: 3.4.0                                      --
+-- Version: 1.1.3                                               --
+-- WoW Game Version: 3.4.3                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -38,7 +38,7 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.1.1"
+GreyOnCooldown.VERSION = "1.1.3"
 GreyOnCooldown.AddonBartender4IsPresent = false
 GreyOnCooldown.Bartender4ButtonsTable = {}
 GreyOnCooldown.AddonConsolePortIsPresent = false
@@ -219,7 +219,7 @@ end
 
 -- Function to reconfigure all BT4Buttons when Bartender4 ActionBars are loaded or modified
 function GreyOnCooldown:HookBartender4GreyOnCooldownIcons()
-	for i = 1, 120 do
+	for i = 1, 360 do
 		local button = _G["BT4Button"..i]
 		if ((button ~= nil) and (not GreyOnCooldown.Bartender4ButtonsTable[i])) then
 			GreyOnCooldown.Bartender4ButtonsTable[i] = button
@@ -317,8 +317,19 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 		local UpdateFuncCache = {}
 		function ActionButtonGreyOnCooldown_UpdateCooldown(self, expectedUpdate)
 			local icon = self.icon
-			local spellID = ((GreyOnCooldown:CheckAddonBartender4() or GreyOnCooldown:CheckAddonConsolePort()) and (self._state_type == "spell")) and self._state_action or self.spellID
-			local action = (GreyOnCooldown:CheckAddonBartender4() or GreyOnCooldown:CheckAddonConsolePort()) and self._state_action or self.action
+			local spellID
+			local action
+			if (GreyOnCooldown:CheckAddonBartender4() or GreyOnCooldown:CheckAddonConsolePort()) then
+				if (self._state_type == "spell") then
+					spellID = self._state_action
+				else
+					spellID = self.spellID
+				end
+				action = self._state_action
+			else
+				spellID = self.spellID
+				action = self.action
+			end
 			if (icon and ((action and type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string"))) then
 				local start, duration
 				if (spellID) then
@@ -332,11 +343,11 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 					end
 					if ((not self.onCooldown) or (self.onCooldown == 0)) then
 						self.onCooldown = start + duration
-						local nextTime = start + duration - GetTime() - 1.0
-						if (nextTime < -1.0) then
-							nextTime = 0.05
+						local nextTime = start + duration - GetTime() - 0.1
+						if (nextTime < -0.1) then
+							nextTime = 0.025
 						elseif (nextTime < 0) then
-							nextTime = -nextTime / 2
+							nextTime = 0.051
 						end
 						if nextTime <= 4294967.295 then
 							local func = UpdateFuncCache[self]
@@ -346,16 +357,14 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 							end
 							C_Timer.After(nextTime, func)
 						end
-					elseif (expectedUpdate or (self.onCooldown > start + duration + 0.05)) then
+					elseif (expectedUpdate or (self.onCooldown > start + duration + 0.025)) then
 						if (self.onCooldown ~= start + duration) then
 							self.onCooldown = start + duration
 						end
-						local nextTime = 0.05
-						local timeRemains = self.onCooldown-GetTime()
-						if (timeRemains > 0.31) then
-							nextTime = timeRemains / 5
-						elseif (timeRemains < 0) then
-							nextTime = 0.05
+						local nextTime = 0.025
+						local timeRemains = self.onCooldown - GetTime()
+						if (timeRemains > 0.041) then
+							nextTime = timeRemains / 1.5
 						end
 						if nextTime <= 4294967.295 then
 							local func = UpdateFuncCache[self]

@@ -1,5 +1,5 @@
-## Interface: 110005
-## Title: GreyOnCooldown
+## Interface: 40401
+## Title: |TInterface\Addons\GreyOnCooldown\micon:16:16|t GreyOnCooldown
 ## Author: millanzarreta
 ## Version: 1.1.4
 ## IconTexture: Interface\Addons\GreyOnCooldown\micon

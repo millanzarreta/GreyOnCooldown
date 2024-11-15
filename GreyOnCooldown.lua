@@ -2,7 +2,7 @@
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
 -- Version: 1.1.4                                               --
--- WoW Game Version: 11.0.5                                     --
+-- WoW Game Version: 4.4.1                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -34,7 +34,7 @@ GreyOnCooldown.defaults = {
 		enabled = true,
 		disabledConsoleStatusMessages = false,
 		desaturateUnusableActions = true,
-		minDuration = 1.51
+		minDuration = 2.01
 	}
 }
 
@@ -233,8 +233,7 @@ local function GreyOnCooldown_ActionButtonGetCooldown(self)
 		return GetActionCooldown(self._state_action)
 	elseif (self._state_type == "spell") then
 		ActionButtonGreyOnCooldown_UpdateCooldown(self)
-		local spellCooldownInfo = C_Spell.GetSpellCooldown(self._state_action) or {startTime = 0, duration = 0, isEnabled = false, modRate = 1}
-		return spellCooldownInfo.startTime, spellCooldownInfo.duration, spellCooldownInfo.isEnabled, spellCooldownInfo.modRate
+		return GetSpellCooldown(self._state_action)
 	elseif (self._state_type == "item") then
 		return C_Container.GetItemCooldown(self._state_action:match("^item:(%d+)"))
 	else
@@ -321,8 +320,7 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 			if (icon and ((action and type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string"))) then
 				local start, duration
 				if (spellID) then
-					local spellCooldownInfo = C_Spell.GetSpellCooldown(spellID) or {startTime = 0, duration = 0}
-					start, duration = spellCooldownInfo.startTime, spellCooldownInfo.duration
+					start, duration = GetSpellCooldown(spellID)
 				else
 					start, duration = GetActionCooldown(action)
 				end

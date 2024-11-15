@@ -71,8 +71,23 @@ GreyOnCooldown.optionsTable = {
 						GreyOnCooldown.db.profile.disabledConsoleStatusMessages = value
 					end
 				},
-				minDuration = {
+				desaturateUnusableActions = {
 					order = 7,
+					type = "toggle",
+					name = L['DesaturateUnusableActions'],
+					desc = L['DesaturateUnusableActionsDesc'],
+					width = "double",
+					get = function() return GreyOnCooldown.db.profile.desaturateUnusableActions end,
+					set = function(_,value)
+						GreyOnCooldown.db.profile.desaturateUnusableActions = value
+						if (GreyOnCooldown:IsEnabled() and value) then
+							GreyOnCooldown:HookGreyOnCooldownIcons()
+							GreyOnCooldown:CheckAddonLAB()
+						end
+					end
+				},
+				minDuration = {
+					order = 8,
 					type = "range",
 					width = "double",
 					min = 0.01,
@@ -88,9 +103,9 @@ GreyOnCooldown.optionsTable = {
 					end
 				},
 				minDurationToDefault = {
-					order = 8,
+					order = 9,
 					type = "execute",
-					name = L["Default"],
+					name = '|T851904:0|t '..L["Default"],
 					desc = L["DefaultDesc"],
 					func  = function() GreyOnCooldown.db.profile.minDuration = GreyOnCooldown.db.defaults.profile.minDuration end
 				}

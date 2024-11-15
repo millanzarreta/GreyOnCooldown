@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.1.3                                               --
--- WoW Game Version: 10.2.0                                     --
+-- Version: 1.1.4                                               --
+-- WoW Game Version: 11.0.5                                     --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -33,19 +33,21 @@ GreyOnCooldown.defaults = {
 	profile = {
 		enabled = true,
 		disabledConsoleStatusMessages = false,
+		desaturateUnusableActions = true,
 		minDuration = 1.51
 	}
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.1.3"
-GreyOnCooldown.AddonBartender4IsPresent = false
-GreyOnCooldown.Bartender4ButtonsTable = {}
-GreyOnCooldown.AddonConsolePortIsPresent = false
-GreyOnCooldown.ConsolePortButtonsTable = {}
+GreyOnCooldown.VERSION = "1.1.4"
+GreyOnCooldown.CheckAddonsWindowTime = 90
+GreyOnCooldown.AddonLABIsPresent = nil
+GreyOnCooldown.LABButtonsTable = {}
+GreyOnCooldown.GOCLoadTimestamp = nil
 
 -- First function fired
 function GreyOnCooldown:OnInitialize()
+	self.GOCLoadTimestamp = GetTime()
 	self.db = AceDB:New("GreyOnCooldown_DB", self.defaults, true)
 	
 	self.optionsTable.args.profiles = AceDBOptions:GetOptionsTable(self.db)
@@ -56,18 +58,20 @@ function GreyOnCooldown:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
 	
+	self.optionsFramesCatId = {}
 	self.optionsFrames = {}
-	self.optionsFrames.general = AceConfigDialog:AddToBlizOptions("GreyOnCooldown", nil, nil, "general")
-	self.optionsFrames.profiles = AceConfigDialog:AddToBlizOptions("GreyOnCooldown", L["Profiles"], "GreyOnCooldown", "profiles")
+	self.optionsFrames.general, self.optionsFramesCatId.general = AceConfigDialog:AddToBlizOptions("GreyOnCooldown", nil, nil, "general")
+	self.optionsFrames.profiles, self.optionsFramesCatId.profiles = AceConfigDialog:AddToBlizOptions("GreyOnCooldown", L["Profiles"], "GreyOnCooldown", "profiles")
 	
 	self:RegisterChatCommand("GreyOnCooldown", "SlashCommand")
+	self:RegisterChatCommand("GOC", "SlashCommand")
 	
 	-- Start GreyOnCooldown Core
 	if (self.db.profile.enabled) then
-		GreyOnCooldown:Enable()
-		GreyOnCooldown:MainFunction() 
+		self:Enable()
+		self:MainFunction()
 	else
-		GreyOnCooldown:Disable()
+		self:Disable()
 	end
 end
 
@@ -80,11 +84,13 @@ function GreyOnCooldown:RefreshConfig()
 		else
 			self:Enable()
 			self:HookGreyOnCooldownIcons()
+			self:CheckAddonLAB()
 		end
 	else
 		if (self.db.profile.enabled) then
 			self:Enable()
 			self:HookGreyOnCooldownIcons()
+			self:CheckAddonLAB()
 		else
 			self:Disable()
 		end
@@ -100,13 +106,55 @@ function GreyOnCooldown:SlashCommand(str)
 		if (not GreyOnCooldown:IsEnabled()) then
 			GreyOnCooldown.db.profile.enabled = true
 			GreyOnCooldown:Enable()
-			GreyOnCooldown:MainFunction() 
+			GreyOnCooldown:MainFunction()
 		end
 	elseif (cmd == "disable") or (cmd == "off") then
 		if (GreyOnCooldown:IsEnabled()) then
 			GreyOnCooldown.db.profile.enabled = false
 			GreyOnCooldown:Disable()
 			ReloadUI()
+		end
+	elseif (cmd == "disableconsolestatusmessages") or (cmd == "disablecsm") or (cmd == "dcsm") then
+		local newValue
+		if (arg1 == "") or (arg1 == "toggle") then
+			newValue = not(GreyOnCooldown.db.profile.disabledConsoleStatusMessages)
+		elseif (arg1 == "default") then
+			newValue = GreyOnCooldown.db.defaults.profile.disabledConsoleStatusMessages
+		elseif (arg1 == "on") or (arg1 == "enable") or (arg1 == "1") then
+			newValue = true
+		elseif (arg1 == "off") or (arg1 == "disable") or (arg1 == "0") or (arg1 == "-1") then
+			newValue = false
+		end
+		if (newValue ~= nil) then
+			if (GreyOnCooldown.db.profile.disabledConsoleStatusMessages ~= newValue) then
+				GreyOnCooldown.db.profile.disabledConsoleStatusMessages = newValue
+			end
+			if not(GreyOnCooldown.db.profile.disabledConsoleStatusMessages) then
+				GreyOnCooldown:Print("|cffd2a679" .. L['GreyOnCooldown'] .. '->disabledConsoleStatusMessages = ' .. tostring(GreyOnCooldown.db.profile.disabledConsoleStatusMessages) .. "|r")
+			end
+		end
+	elseif (cmd == "desaturateunusableactions") or (cmd == "desaturateua") or (cmd == "dua") then
+		local newValue
+		if (arg1 == "") or (arg1 == "toggle") then
+			newValue = not(GreyOnCooldown.db.profile.desaturateUnusableActions)
+		elseif (arg1 == "default") then
+			newValue = GreyOnCooldown.db.defaults.profile.desaturateUnusableActions
+		elseif (arg1 == "on") or (arg1 == "enable") or (arg1 == "1") then
+			newValue = true
+		elseif (arg1 == "off") or (arg1 == "disable") or (arg1 == "0") or (arg1 == "-1") then
+			newValue = false
+		end
+		if (newValue ~= nil) then
+			if (GreyOnCooldown.db.profile.desaturateUnusableActions ~= newValue) then
+				GreyOnCooldown.db.profile.desaturateUnusableActions = newValue
+				if (GreyOnCooldown:IsEnabled() and newValue) then
+					GreyOnCooldown:HookGreyOnCooldownIcons()
+					GreyOnCooldown:CheckAddonLAB()
+				end
+			end
+			if not(GreyOnCooldown.db.profile.disabledConsoleStatusMessages) then
+				GreyOnCooldown:Print("|cffd2a679" .. L['GreyOnCooldown'] .. '->desaturateUnusableActions = ' .. tostring(GreyOnCooldown.db.profile.desaturateUnusableActions) .. "|r")
+			end
 		end
 	elseif (cmd == "minduration") then
 		if (arg1 ~= "") then
@@ -120,6 +168,9 @@ function GreyOnCooldown:SlashCommand(str)
 					end
 					GreyOnCooldown.db.profile.minDuration = newValue
 				end
+			end
+			if not(GreyOnCooldown.db.profile.disabledConsoleStatusMessages) then
+				GreyOnCooldown:Print("|cffd2a679" .. L['GreyOnCooldown'] .. '->minDuration = ' .. tostring(GreyOnCooldown.db.profile.minDuration) .. "|r")
 			end
 		end
 	elseif (cmd == "profiles") then
@@ -140,6 +191,8 @@ function GreyOnCooldown:ShowHelp()
 	GreyOnCooldown:Print("|cffd2a679" .. L['GREYONCOOLDOWN_HELP_LINE4'] .. "|r")
 	GreyOnCooldown:Print("|cffd2a679" .. L['GREYONCOOLDOWN_HELP_LINE5'] .. "|r")
 	GreyOnCooldown:Print("|cffd2a679" .. L['GREYONCOOLDOWN_HELP_LINE6'] .. "|r")
+	GreyOnCooldown:Print("|cffd2a679" .. L['GREYONCOOLDOWN_HELP_LINE7'] .. "|r")
+	GreyOnCooldown:Print("|cffd2a679" .. L['GREYONCOOLDOWN_HELP_LINE8'] .. "|r")
 end
 
 function GreyOnCooldown:OnEnable()
@@ -156,176 +209,111 @@ end
 
 -- Show Options Menu
 function GreyOnCooldown:ShowConfig(category)
-	-- Call twice to workaround a bug in Blizzard's function
-	InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.profiles)
-	InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.profiles)
 	if (category ~= nil) then
 		if (category == 0) then
-			InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.general)
+			Settings.OpenToCategory(self.optionsFramesCatId.general)
 		elseif (category == 1) then
-			InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.profiles)
+			Settings.OpenToCategory(self.optionsFramesCatId.profiles)
 		end
 	else
-		InterfaceOptionsFrame_OpenToCategory(self.optionsFrames.general)
+		Settings.OpenToCategory(self.optionsFramesCatId.general)
 	end
 end
 
 -- GreyOnCooldown MainFunction
 function GreyOnCooldown:MainFunction()
 	GreyOnCooldown:HookGreyOnCooldownIcons()
-	GreyOnCooldown:CheckAddonBartender4()
-	GreyOnCooldown:CheckAddonConsolePort()
+	GreyOnCooldown:CheckAddonLAB()
 end
 
--- Function to fast-check if Bartender4 addon is present
-function GreyOnCooldown:CheckAddonBartender4()
-	if (self.AddonBartender4IsPresent) then
-		return true
-	else
-		if ((BINDING_HEADER_Bartender4 == nil) or (BINDING_NAME_BTTOGGLEACTIONBARLOCK == nil) or (Bartender4 == nil) or (Bartender4.ActionBar == nil)) then
-			return false
-		else
-			if (not Bartender4.ActionBar.GREYONCOOLDOWN_BT4_HOOKED) then
-				hooksecurefunc(Bartender4.ActionBar, 'ApplyConfig', GreyOnCooldown.HookBartender4GreyOnCooldownIcons)
-				self:HookBartender4GreyOnCooldownIcons()
-				Bartender4.ActionBar.GREYONCOOLDOWN_BT4_HOOKED = true
-			end
-			local LibActionButton = LibStub:GetLibrary("LibActionButton-1.0", true)
-			if LibActionButton then
-				LibActionButton.RegisterCallback(self, "OnButtonUpdate", function(event, button)
-					ActionButtonGreyOnCooldown_UpdateCooldown(button)
-				end)
-			end
-			self.AddonBartender4IsPresent = true
-			return true
-		end
-	end
-end
-
--- Dummy function to replace GetCooldown function from ActionButtons
+-- Dummy function to replace GetCooldown function from LAB ActionButtons
 local function GreyOnCooldown_ActionButtonGetCooldown(self)
 	if (self._state_type == "action") then
 		ActionButtonGreyOnCooldown_UpdateCooldown(self)
 		return GetActionCooldown(self._state_action)
 	elseif (self._state_type == "spell") then
 		ActionButtonGreyOnCooldown_UpdateCooldown(self)
-		return GetSpellCooldown(self._state_action)
+		local spellCooldownInfo = C_Spell.GetSpellCooldown(self._state_action) or {startTime = 0, duration = 0, isEnabled = false, modRate = 1}
+		return spellCooldownInfo.startTime, spellCooldownInfo.duration, spellCooldownInfo.isEnabled, spellCooldownInfo.modRate
 	elseif (self._state_type == "item") then
-		return GetItemCooldown(self._state_action:match("^item:(%d+)"))
+		return C_Container.GetItemCooldown(self._state_action:match("^item:(%d+)"))
 	else
-		return 0, 0, 0
+		return nil
 	end
 end
 
--- Function to reconfigure all BT4Buttons when Bartender4 ActionBars are loaded or modified
-function GreyOnCooldown:HookBartender4GreyOnCooldownIcons()
-	for i = 1, 360 do
-		local button = _G["BT4Button"..i]
-		if ((button ~= nil) and (not GreyOnCooldown.Bartender4ButtonsTable[i])) then
-			GreyOnCooldown.Bartender4ButtonsTable[i] = button
-			if (not button.GREYONCOOLDOWN_BT4_HOOKED) then
-				-- Replace 'GetCooldown' (BT4Button) function because we can't hook the local 'UpdateCooldown' (BT4Button) function
-				button.GetCooldown = GreyOnCooldown_ActionButtonGetCooldown
-				button.GREYONCOOLDOWN_BT4_HOOKED = true
-			end
-		end
-	end
-end
-
--- Function to fast-check if ConsolePort addon is present
-function GreyOnCooldown:CheckAddonConsolePort()
-	if (self.AddonConsolePortIsPresent) then
+-- Function to fast-check if some LibActionButtons-1.0 addon is present
+function GreyOnCooldown:CheckAddonLAB()
+	if (self.AddonLABIsPresent == false) then
+		return false
+	elseif (self.AddonLABIsPresent) then
 		return true
 	else
-		if ((ConsolePort == nil) or (ConsolePortBar == nil) or (CPActionButtonMixin == nil)) then
-			return false
-		else
-			if (not ConsolePortBar.GREYONCOOLDOWN_CONSOLEPORT_HOOKED) then
-				hooksecurefunc(CPActionButtonMixin, 'SetIcon', function(self, icon) ActionButtonGreyOnCooldown_UpdateCooldown(self) end)
-				hooksecurefunc(ConsolePortBar, 'OnLoad', GreyOnCooldown.HookConsolePortGreyOnCooldownIcons)
-				self:HookConsolePortGreyOnCooldownIcons()
-				ConsolePortBar.GREYONCOOLDOWN_CONSOLEPORT_HOOKED = true
-			end
-			self.frame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
-			self.frame:RegisterEvent("LOSS_OF_CONTROL_ADDED")
-			self.frame:RegisterEvent("LOSS_OF_CONTROL_UPDATE")
-			self.frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
-			self.AddonConsolePortIsPresent = true
-			return true
-		end
-	end
-end
-
--- Function to reconfigure all ConsolePortActionButtons when ConsolePort ActionBars are loaded or modified
-function GreyOnCooldown:HookConsolePortGreyOnCooldownIcons()
-	local mods = { "", "_SHIFT", "_CTRL", "_CTRL-SHIFT" }
-	for bindName in ConsolePort:GetBindings() do
-		for _, modSuf in ipairs(mods) do
-			local buttonName = "CPB_"..bindName..modSuf
-			if (not GreyOnCooldown.ConsolePortButtonsTable[buttonName]) then
-				GreyOnCooldown.ConsolePortButtonsTable[buttonName] = _G[buttonName]
-			end
-		end
-	end
-end
-
--- ACTIONBAR_UPDATE_COOLDOWN Event Handler
-function GreyOnCooldown:ACTIONBAR_UPDATE_COOLDOWN()
-	if (GreyOnCooldown:CheckAddonConsolePort()) then
-		for _, button in pairs(GreyOnCooldown.ConsolePortButtonsTable) do
-			ActionButtonGreyOnCooldown_UpdateCooldown(button)
-		end
-	end
-end
-
--- LOSS_OF_CONTROL_ADDED Event Handler
-function GreyOnCooldown:LOSS_OF_CONTROL_ADDED()
-	if (GreyOnCooldown:CheckAddonConsolePort()) then
-		for _, button in pairs(GreyOnCooldown.ConsolePortButtonsTable) do
-			ActionButtonGreyOnCooldown_UpdateCooldown(button)
-		end
-	end
-end
-
--- LOSS_OF_CONTROL_UPDATE Event Handler
-function GreyOnCooldown:LOSS_OF_CONTROL_UPDATE()
-	if (GreyOnCooldown:CheckAddonConsolePort()) then
-		for _, button in pairs(GreyOnCooldown.ConsolePortButtonsTable) do
-			ActionButtonGreyOnCooldown_UpdateCooldown(button)
-		end
-	end
-end
-
--- SPELL_ACTIVATION_OVERLAY_GLOW_HIDE Event Handler
-function GreyOnCooldown:SPELL_ACTIVATION_OVERLAY_GLOW_HIDE(argSpellId)
-	if (GreyOnCooldown:CheckAddonConsolePort()) then
-		for _, button in pairs(GreyOnCooldown.ConsolePortButtonsTable) do
-			if (button._state_action and type(button._state_action)~="table") then
-				local actionType, id = GetActionInfo(button._state_action)
-				local spellId = ((actionType == 'spell') and id) or ((actionType == 'macro') and select(3, GetMacroSpell(id))) or nil
-				if (spellId == argSpellId) then
-					ActionButtonGreyOnCooldown_UpdateCooldown(button)
+		if ((self.GOCLoadTimestamp == nil) or ((GetTime() - self.GOCLoadTimestamp) < self.CheckAddonsWindowTime)) then
+			local LibActionButton = LibStub:GetLibrary("LibActionButton-1.0", true)
+			if LibActionButton then
+				if (not LibActionButton.GREYONCOOLDOWN_ONBUTTONUPDATE_LAB_HOOKED) then
+					LibActionButton.RegisterCallback(self, "OnButtonUpdate", function(event, button)
+						ActionButtonGreyOnCooldown_UpdateCooldown(button)
+					end)
+					LibActionButton.GREYONCOOLDOWN_ONBUTTONUPDATE_LAB_HOOKED = true
 				end
+				if (self.db.profile.desaturateUnusableActions) then
+					if (not LibActionButton.GREYONCOOLDOWN_ONBUTTONUSABLE_LAB_HOOKED) then
+						LibActionButton.RegisterCallback(self, "OnButtonUsable", function(event, button)
+							ActionButtonGreyOnCooldown_UpdateCooldown(button)
+						end)
+						LibActionButton.GREYONCOOLDOWN_ONBUTTONUSABLE_LAB_HOOKED = true
+					end
+				end
+				for button in next, LibActionButton.buttonRegistry do
+					if ((button ~= nil) and not(self.LABButtonsTable[button])) then
+						if (not button.GREYONCOOLDOWN_LAB_HOOKED) then
+							self.LABButtonsTable[button] = true
+							-- Replace 'GetCooldown' (LABButton) function because we can't hook the local 'UpdateCooldown' (LABButton) function
+							button.GetCooldown = GreyOnCooldown_ActionButtonGetCooldown
+							button.GREYONCOOLDOWN_LAB_HOOKED = true
+						end
+					end
+				end
+				LibActionButton.RegisterCallback(self, "OnButtonCreated", function(event, button)
+					if ((button ~= nil) and (not GreyOnCooldown.LABButtonsTable[button])) then
+						if (not button.GREYONCOOLDOWN_LAB_HOOKED) then
+							GreyOnCooldown.LABButtonsTable[button] = true
+							-- Replace 'GetCooldown' (LABButton) function because we can't hook the local 'UpdateCooldown' (LABButton) function
+							button.GetCooldown = GreyOnCooldown_ActionButtonGetCooldown
+							button.GREYONCOOLDOWN_LAB_HOOKED = true
+						end
+					end
+				end)
+				self.AddonLABIsPresent = true
+				return true
+			else
+				return false
 			end
+		else
+			self.AddonLABIsPresent = false
+			return false
 		end
 	end
 end
 
 -- Function to desaturate the entire action icon when the spell is on cooldown
 function GreyOnCooldown:HookGreyOnCooldownIcons()
+	-- Main hook function (regular action buttons)
 	if (not GREYONCOOLDOWN_HOOKED) then
 		local UpdateFuncCache = {}
 		function ActionButtonGreyOnCooldown_UpdateCooldown(self, expectedUpdate)
 			local icon = self.icon
 			local spellID
 			local action
-			if (GreyOnCooldown:CheckAddonBartender4() or GreyOnCooldown:CheckAddonConsolePort()) then
+			if GreyOnCooldown:CheckAddonLAB() then
 				if (self._state_type == "spell") then
 					spellID = self._state_action
 				else
 					spellID = self.spellID
+					action = self._state_action
 				end
-				action = self._state_action
 			else
 				spellID = self.spellID
 				action = self.action
@@ -333,7 +321,8 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 			if (icon and ((action and type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string"))) then
 				local start, duration
 				if (spellID) then
-					start, duration = GetSpellCooldown(spellID)
+					local spellCooldownInfo = C_Spell.GetSpellCooldown(spellID) or {startTime = 0, duration = 0}
+					start, duration = spellCooldownInfo.startTime, spellCooldownInfo.duration
 				else
 					start, duration = GetActionCooldown(action)
 				end
@@ -380,8 +369,21 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 					end
 				else
 					self.onCooldown = 0
-					if (icon:IsDesaturated()) then
-						icon:SetDesaturated(false)
+					if (GreyOnCooldown.db.profile.desaturateUnusableActions and action) then
+						local isUsable, notEnoughMana = IsUsableAction(action)
+						if (isUsable or notEnoughMana) then
+							if (icon:IsDesaturated()) then
+								icon:SetDesaturated(false)
+							end
+						else
+							if (not icon:IsDesaturated()) then
+								icon:SetDesaturated(true)
+							end
+						end
+					else
+						if (icon:IsDesaturated()) then
+							icon:SetDesaturated(false)
+						end
 					end
 				end
 			end
@@ -389,5 +391,103 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 		-- We hook to 'ActionButton_UpdateCooldown' instead of 'ActionButton_OnUpdate' because 'ActionButton_OnUpdate' is much more expensive. So, we need use C_Timer.After to trigger the function when cooldown ends.
 		hooksecurefunc('ActionButton_UpdateCooldown', ActionButtonGreyOnCooldown_UpdateCooldown)
 		GREYONCOOLDOWN_HOOKED = true
+	end
+	-- Aux hook function for 'UpdateUsable'
+	if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
+		-- Aux hook function for 'UpdateUsable' (regular action buttons)
+		if (not GREYONCOOLDOWN_UPDATEUSABLE_HOOKED) then
+			local function HookGOCActionBarButtonUpdateUsable(actionBarButton)
+				if (actionBarButton.UpdateUsable ~= nil) then
+					hooksecurefunc(actionBarButton, "UpdateUsable", function(self)
+						if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
+							if ((not self.onCooldown) or (self.onCooldown == 0)) then
+								local icon = self.icon
+								local spellID
+								local action
+								if GreyOnCooldown:CheckAddonLAB() then
+									if (self._state_type == "spell") then
+										spellID = self._state_action
+									else
+										spellID = self.spellID
+										action = self._state_action
+									end
+								else
+									spellID = self.spellID
+									action = self.action
+								end
+								if (icon and action and ((type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string"))) then
+									local isUsable, notEnoughMana = IsUsableAction(action)
+									if (isUsable or notEnoughMana) then
+										if (icon:IsDesaturated()) then
+											icon:SetDesaturated(false)
+										end
+									else
+										if (not icon:IsDesaturated()) then
+											icon:SetDesaturated(true)
+										end
+									end
+								end
+							end
+						end
+					end)
+				end
+			end
+			for i = 1, 12 do
+				local actionButton
+				actionButton = _G["ExtraActionButton"..i]
+				if (actionButton) then
+					HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+				actionButton = _G["ActionButton"..i]
+				if (actionButton) then
+					HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+				actionButton = _G["MultiBarBottomLeftButton"..i]
+				if (actionButton) then
+					HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+				actionButton = _G["MultiBarBottomRightButton"..i]
+				if (actionButton) then
+					HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+				actionButton = _G["MultiBarLeftButton"..i]
+				if (actionButton) then
+					HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+				actionButton = _G["MultiBarRightButton"..i]
+				if (actionButton) then
+					HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+				actionButton = _G["PetActionButton"..i]
+				if (actionButton) then
+					HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+				actionButton = _G["StanceButton"..i]
+				if (actionButton) then
+					HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+				actionButton = _G["PossessButton"..i]
+				if (actionButton) then
+					HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+				actionButton = _G["OverrideActionBarButton"..i]
+				if (actionButton) then
+					HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+			end
+			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED = true
+		end
+		-- Aux hook function for 'UpdateUsable' (LAB action buttons)
+		if (GreyOnCooldown.AddonLABIsPresent) then
+			local LibActionButton = LibStub:GetLibrary("LibActionButton-1.0", true)
+			if LibActionButton then
+				if (not LibActionButton.GREYONCOOLDOWN_ONBUTTONUSABLE_LAB_HOOKED) then
+					LibActionButton.RegisterCallback(GreyOnCooldown, "OnButtonUsable", function(event, button)
+						ActionButtonGreyOnCooldown_UpdateCooldown(button)
+					end)
+					LibActionButton.GREYONCOOLDOWN_ONBUTTONUSABLE_LAB_HOOKED = true
+				end
+			end
+		end
 	end
 end

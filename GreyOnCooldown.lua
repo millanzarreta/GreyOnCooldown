@@ -1,7 +1,7 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.1.4                                               --
+-- Version: 1.1.5                                               --
 -- WoW Game Version: 4.4.1                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
@@ -39,7 +39,7 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.1.4"
+GreyOnCooldown.VERSION = "1.1.5"
 GreyOnCooldown.CheckAddonsWindowTime = 90
 GreyOnCooldown.AddonLABIsPresent = nil
 GreyOnCooldown.LABButtonsTable = {}
@@ -394,85 +394,38 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 	if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
 		-- Aux hook function for 'UpdateUsable' (regular action buttons)
 		if (not GREYONCOOLDOWN_UPDATEUSABLE_HOOKED) then
-			local function HookGOCActionBarButtonUpdateUsable(actionBarButton)
-				if (actionBarButton.UpdateUsable ~= nil) then
-					hooksecurefunc(actionBarButton, "UpdateUsable", function(self)
-						if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
-							if ((not self.onCooldown) or (self.onCooldown == 0)) then
-								local icon = self.icon
-								local spellID
-								local action
-								if GreyOnCooldown:CheckAddonLAB() then
-									if (self._state_type == "spell") then
-										spellID = self._state_action
-									else
-										spellID = self.spellID
-										action = self._state_action
-									end
-								else
-									spellID = self.spellID
-									action = self.action
+			hooksecurefunc('ActionButton_UpdateUsable', function(self)
+				if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
+					if ((not self.onCooldown) or (self.onCooldown == 0)) then
+						local icon = self.icon
+						local spellID
+						local action
+						if GreyOnCooldown:CheckAddonLAB() then
+							if (self._state_type == "spell") then
+								spellID = self._state_action
+							else
+								spellID = self.spellID
+								action = self._state_action
+							end
+						else
+							spellID = self.spellID
+							action = self.action
+						end
+						if (icon and action and ((type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string"))) then
+							local isUsable, notEnoughMana = IsUsableAction(action)
+							if (isUsable or notEnoughMana) then
+								if (icon:IsDesaturated()) then
+									icon:SetDesaturated(false)
 								end
-								if (icon and action and ((type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string"))) then
-									local isUsable, notEnoughMana = IsUsableAction(action)
-									if (isUsable or notEnoughMana) then
-										if (icon:IsDesaturated()) then
-											icon:SetDesaturated(false)
-										end
-									else
-										if (not icon:IsDesaturated()) then
-											icon:SetDesaturated(true)
-										end
-									end
+							else
+								if (not icon:IsDesaturated()) then
+									icon:SetDesaturated(true)
 								end
 							end
 						end
-					end)
+					end
 				end
-			end
-			for i = 1, 12 do
-				local actionButton
-				actionButton = _G["ExtraActionButton"..i]
-				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
-				end
-				actionButton = _G["ActionButton"..i]
-				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
-				end
-				actionButton = _G["MultiBarBottomLeftButton"..i]
-				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
-				end
-				actionButton = _G["MultiBarBottomRightButton"..i]
-				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
-				end
-				actionButton = _G["MultiBarLeftButton"..i]
-				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
-				end
-				actionButton = _G["MultiBarRightButton"..i]
-				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
-				end
-				actionButton = _G["PetActionButton"..i]
-				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
-				end
-				actionButton = _G["StanceButton"..i]
-				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
-				end
-				actionButton = _G["PossessButton"..i]
-				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
-				end
-				actionButton = _G["OverrideActionBarButton"..i]
-				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
-				end
-			end
+			end)
 			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED = true
 		end
 		-- Aux hook function for 'UpdateUsable' (LAB action buttons)

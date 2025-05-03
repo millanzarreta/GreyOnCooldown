@@ -71,8 +71,20 @@ GreyOnCooldown.optionsTable = {
 						GreyOnCooldown.db.profile.disabledConsoleStatusMessages = value
 					end
 				},
-				desaturateUnusableActions = {
+				disabledAddonCompartmentIntegration = {
 					order = 7,
+					type = "toggle",
+					name = L['DisableAddonCompartmentIntegration'],
+					desc = L['DisableAddonCompartmentIntegrationDesc'],
+					width = "double",
+					get = function() return GreyOnCooldown.db.profile.disabledAddonCompartmentIntegration end,
+					set = function(_,value)
+						GreyOnCooldown.db.profile.disabledAddonCompartmentIntegration = value
+						GreyOnCooldown:AddonCompartmentIntegration(not(value))
+					end
+				},
+				desaturateUnusableActions = {
+					order = 8,
 					type = "toggle",
 					name = L['DesaturateUnusableActions'],
 					desc = L['DesaturateUnusableActionsDesc'],
@@ -87,7 +99,7 @@ GreyOnCooldown.optionsTable = {
 					end
 				},
 				minDuration = {
-					order = 8,
+					order = 9,
 					type = "range",
 					width = "double",
 					min = 0.01,
@@ -103,7 +115,7 @@ GreyOnCooldown.optionsTable = {
 					end
 				},
 				minDurationToDefault = {
-					order = 9,
+					order = 10,
 					type = "execute",
 					name = '|T851904:0|t '..L["Default"],
 					desc = L["DefaultDesc"],

@@ -1,0 +1,38 @@
+local L = LibStub("AceLocale-3.0"):NewLocale("GreyOnCooldown","ruRU",false)
+if not L then return end 
+-- Перевод ZamestoTV
+L[''] = ''
+L['GreyOnCooldown'] = 'GreyOnCooldown'
+L['Version'] = 'Версия'
+L['Author: Millán-Sanguino'] = 'Автор: Millán-Sanguino'
+L['Enable'] = 'Включить'
+L['Enable GreyOnCooldown'] = 'Включить GreyOnCooldown'
+L['Hide'] = 'Скрыть'
+L['Enabled'] = 'Включено'
+L['Disabled'] = 'Отключено'
+L['enabled'] = 'включено'
+L['disabled'] = 'отключено'
+L['General Settings'] = 'Общие настройки'
+L['Profiles'] = 'Профили'
+L['ReloadUI'] = 'Перезагрузить интерфейс'
+
+L["Default"] = "По умолчанию"
+L['DefaultDesc'] = 'Установить параметр на значение по умолчанию'
+L['DisableConsoleStatusMessages'] = 'Отключить сообщения состояния в консоли'
+L['DisableConsoleStatusMessagesDesc'] = 'Установите этот флажок, чтобы предотвратить отображение сообщений состояния в консоли'
+L['DesaturateUnusableActions'] = 'Обесцвечивать недоступные действия'
+L['DesaturateUnusableActionsDesc'] = 'Обесцвечивать недоступные действия (например, неизученные таланты) независимо от их состояния перезарядки'
+L['DisableAddonCompartmentIntegration'] = 'Отключить интеграцию с AddonCompartment'
+L['DisableAddonCompartmentIntegrationDesc'] = 'Установите этот флажок, чтобы не отображать аддон GreyOnCooldown в выпадающем меню AddonCompartment (доступно через миникарту)'
+L['minDuration'] = 'Минимальная длительность'
+L['minDurationDesc'] = 'Установите минимальное значение (в секундах) для перезарядки, которая будет обесцвечена'
+L['RELOADUI_MSG'] = '|cffffd200GreyOnCooldown|r\n\n|cffff0000Перезагрузка интерфейса:|r Для применения этого действия требуется перезагрузка интерфейса. Если вы хотите продолжить, нажмите \'Принять\', в противном случае нажмите \'Отмена\' или клавишу \'Escape\''
+
+L['GREYONCOOLDOWN_HELP_LINE1'] = 'Доступные команды через слеш:'
+L['GREYONCOOLDOWN_HELP_LINE2'] = '-----------------'
+L['GREYONCOOLDOWN_HELP_LINE3'] = '/GreyOnCooldown (или /GOC): Отображает главную панель настроек GreyOnCooldown.'
+L['GREYONCOOLDOWN_HELP_LINE4'] = '/GreyOnCooldown <enable|disable> или /GreyOnCooldown <on|off>: Включить или отключить GreyOnCooldown.'
+L['GREYONCOOLDOWN_HELP_LINE5'] = '/GreyOnCooldown dcsm <on|off|default>: Включает/отключает сообщения состояния в консоли.'
+L['GREYONCOOLDOWN_HELP_LINE6'] = '/GreyOnCooldown dua <on|off|default>: Включает/отключает обесцвечивание недоступных действий.'
+L['GREYONCOOLDOWN_HELP_LINE7'] = '/GreyOnCooldown minduration <значение|default>: Устанавливает значение параметра minDuration.'
+L['GREYONCOOLDOWN_HELP_LINE8'] = '/GreyOnCooldown profiles: Отображает панель настроек профилей GreyOnCooldown.'

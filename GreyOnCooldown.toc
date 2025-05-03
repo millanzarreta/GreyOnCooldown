@@ -1,10 +1,22 @@
-## Interface: 40401
+## Interface: 40402
 ## Title: |TInterface\Addons\GreyOnCooldown\micon:16:16|t GreyOnCooldown
 ## Author: millanzarreta
-## Version: 1.1.5
+## Version: 1.1.6
 ## IconTexture: Interface\Addons\GreyOnCooldown\micon
 ## Notes: Shows the action bar icons desaturated when they are on cooldown
 ## Notes-esES: Muestra los iconos de la barra de acción desaturados cuando se encuentren en tiempo de reutilización
+## Category: Action Bars
+## Category-enUS: Action Bars
+## Category-deDE: Aktionsleisten
+## Category-esES: Barras de acción
+## Category-esMX: Barras de acción
+## Category-frFR: Barres d’action
+## Category-itIT: Barre delle azioni
+## Category-koKR: 행동 단축바
+## Category-ptBR: Barras de ação
+## Category-ruRU: Панели команд
+## Category-zhCN: 动作条
+## Category-zhTW: 快捷列
 ## X-Category: Action Bars
 ## X-Website: https://www.curseforge.com/wow/addons/GreyOnCooldown
 ## X-License: GNU General Public License version 3 (GPLv3)
@@ -12,7 +24,7 @@
 ## LoadOnDemand: 0
 ## SavedVariables: GreyOnCooldown_DB
 ## OptionalDeps: Ace3
-## X-Curse-Packaged-Version: 1.1.5
+## X-Curse-Packaged-Version: 1.1.6
 ## X-Curse-Project-Name: GreyOnCooldown
 ## X-Curse-Project-ID: GreyOnCooldown
 ## X-Curse-Repository-ID: GreyOnCooldown-mainline

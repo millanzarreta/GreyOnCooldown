@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.1.5                                               --
--- WoW Game Version: 1.15.5                                     --
+-- Version: 1.1.6                                               --
+-- WoW Game Version: 1.15.7                                     --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -39,7 +39,7 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.1.5"
+GreyOnCooldown.VERSION = "1.1.6"
 GreyOnCooldown.CheckAddonsWindowTime = 90
 GreyOnCooldown.AddonLABIsPresent = nil
 GreyOnCooldown.LABButtonsTable = {}
@@ -297,9 +297,9 @@ function GreyOnCooldown:CheckAddonLAB()
 	end
 end
 
--- Function to desaturate the entire action icon when the spell is on cooldown
+-- GreyOnCooldown main function to desaturate the entire action icon when the spell is on cooldown or unusable
 function GreyOnCooldown:HookGreyOnCooldownIcons()
-	-- Main hook function (regular action buttons)
+	-- Main hooks for 'ActionButtons'
 	if (not GREYONCOOLDOWN_HOOKED) then
 		local UpdateFuncCache = {}
 		function ActionButtonGreyOnCooldown_UpdateCooldown(self, expectedUpdate)
@@ -390,9 +390,8 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 		hooksecurefunc('ActionButton_UpdateCooldown', ActionButtonGreyOnCooldown_UpdateCooldown)
 		GREYONCOOLDOWN_HOOKED = true
 	end
-	-- Aux hook function for 'UpdateUsable'
 	if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
-		-- Aux hook function for 'UpdateUsable' (regular action buttons)
+		-- Aux hooks for 'UpdateUsable'
 		if (not GREYONCOOLDOWN_UPDATEUSABLE_HOOKED) then
 			hooksecurefunc('ActionButton_UpdateUsable', function(self)
 				if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
@@ -411,15 +410,28 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 							spellID = self.spellID
 							action = self.action
 						end
-						if (icon and action and ((type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string"))) then
-							local isUsable, notEnoughMana = IsUsableAction(action)
-							if (isUsable or notEnoughMana) then
-								if (icon:IsDesaturated()) then
-									icon:SetDesaturated(false)
+						if (icon) then
+							if (action and type(action)~="table" and type(action)~="string") then
+								local isUsable, notEnoughMana = IsUsableAction(action)
+								if (isUsable or notEnoughMana) then
+									if (icon:IsDesaturated()) then
+										icon:SetDesaturated(false)
+									end
+								else
+									if (not icon:IsDesaturated()) then
+										icon:SetDesaturated(true)
+									end
 								end
-							else
-								if (not icon:IsDesaturated()) then
-									icon:SetDesaturated(true)
+							elseif (spellID and type(spellID)~="table" and type(spellID)~="string") then
+								local isUsable, notEnoughMana = C_Spell.IsSpellUsable(spellID)
+								if (isUsable or notEnoughMana) then
+									if (icon:IsDesaturated()) then
+										icon:SetDesaturated(false)
+									end
+								else
+									if (not icon:IsDesaturated()) then
+										icon:SetDesaturated(true)
+									end
 								end
 							end
 						end
@@ -428,7 +440,7 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 			end)
 			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED = true
 		end
-		-- Aux hook function for 'UpdateUsable' (LAB action buttons)
+		-- Aux hooks for 'UpdateUsable' (LAB action buttons)
 		if (GreyOnCooldown.AddonLABIsPresent) then
 			local LibActionButton = LibStub:GetLibrary("LibActionButton-1.0", true)
 			if LibActionButton then

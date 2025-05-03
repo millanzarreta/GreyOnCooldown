@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.1.4                                               --
--- WoW Game Version: 11.0.5                                     --
+-- Version: 1.1.6                                               --
+-- WoW Game Version: 11.1.5                                     --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -33,17 +33,26 @@ GreyOnCooldown.defaults = {
 	profile = {
 		enabled = true,
 		disabledConsoleStatusMessages = false,
+		disabledAddonCompartmentIntegration = false,
 		desaturateUnusableActions = true,
 		minDuration = 1.51
 	}
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.1.4"
+GreyOnCooldown.VERSION = "1.1.6"
 GreyOnCooldown.CheckAddonsWindowTime = 90
 GreyOnCooldown.AddonLABIsPresent = nil
 GreyOnCooldown.LABButtonsTable = {}
 GreyOnCooldown.GOCLoadTimestamp = nil
+GreyOnCooldown.ACIaddonData = {
+	text = "GreyOnCooldown",
+	icon = "Interface\\Addons\\GreyOnCooldown\\micon",
+	notCheckable = true,
+	func = function()
+		Settings.OpenToCategory(GreyOnCooldown.optionsFramesCatId.general)
+	end
+}
 
 -- First function fired
 function GreyOnCooldown:OnInitialize()
@@ -65,6 +74,10 @@ function GreyOnCooldown:OnInitialize()
 	
 	self:RegisterChatCommand("GreyOnCooldown", "SlashCommand")
 	self:RegisterChatCommand("GOC", "SlashCommand")
+
+	if (not(self.db.profile.disabledAddonCompartmentIntegration)) then
+		self:AddonCompartmentIntegration(true)
+	end
 	
 	-- Start GreyOnCooldown Core
 	if (self.db.profile.enabled) then
@@ -179,6 +192,38 @@ function GreyOnCooldown:SlashCommand(str)
 		GreyOnCooldown:ShowHelp()
 	else
 		GreyOnCooldown:ShowConfig()
+	end
+end
+
+-- Function to register/unregister the addon integration in the Blizzard AddonCompartment dropdown menu
+function GreyOnCooldown:AddonCompartmentIntegration(registerState)
+	if (registerState) then
+		if (AddonCompartmentFrame ~= nil and self.ACIaddonData ~= nil and AddonCompartmentFrame.registeredAddons ~= nil) then
+			local aciIndex
+			for k, v in pairs(AddonCompartmentFrame.registeredAddons) do
+				if (v == self.ACIaddonData) then
+					aciIndex = k
+					break
+				end
+			end
+			if not(aciIndex) then
+				AddonCompartmentFrame:RegisterAddon(self.ACIaddonData)
+			end
+		end
+	else
+		if (AddonCompartmentFrame ~= nil and self.ACIaddonData ~= nil and AddonCompartmentFrame.registeredAddons ~= nil) then
+			local aciIndex
+			for k, v in pairs(AddonCompartmentFrame.registeredAddons) do
+				if (v == self.ACIaddonData) then
+					aciIndex = k
+					break
+				end
+			end
+			if (aciIndex ~= nil) then
+				table.remove(AddonCompartmentFrame.registeredAddons, aciIndex)
+				AddonCompartmentFrame:UpdateDisplay()
+			end
+		end
 	end
 end
 
@@ -298,9 +343,170 @@ function GreyOnCooldown:CheckAddonLAB()
 	end
 end
 
--- Function to desaturate the entire action icon when the spell is on cooldown
+-- Function to set hooks for SpellFlyout frame to detect the newly created SpellFlyoutButtons
+function GreyOnCooldown:HookGOCSpellFlyout()
+	if not(GREYONCOOLDOWN_SPELLFLYOUT_HOOKED) then
+		hooksecurefunc(SpellFlyout, "Toggle", function(self, flyoutButton, flyoutID, isActionBar, specID, showFullTooltip, reason)
+			if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
+				if (not(self:IsShown()) and self.glyphActivating) then
+					return
+				end
+				if (not(self:IsShown()) and self.flyoutButton == nil) then
+					return
+				end
+				local offSpec = specID and (specID ~= 0)
+				local _, _, numSlots, isKnown = GetFlyoutInfo(flyoutID)
+				if ((not isKnown and not offSpec) or numSlots == 0) then
+					return
+				end
+				local numButtons = 0
+				for i = 1, numSlots do
+					local spellID, _, isKnownSlot, _, slotSpecID = GetFlyoutSlotInfo(flyoutID, i)
+					local visible = true
+					local petIndex, petName = GetCallPetSpellInfo(spellID)
+					if (isActionBar and petIndex and (not petName or petName == "")) then
+						visible = false
+					end
+					if (((not offSpec or slotSpecID == 0) and visible and isKnownSlot) or (offSpec and slotSpecID == specID)) then
+						local button = _G["SpellFlyoutPopupButton"..numButtons+1]
+						if (button ~= nil) then
+							GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(button)
+						end
+						numButtons = numButtons+1
+					end
+				end
+			end
+		end)
+		GREYONCOOLDOWN_SPELLFLYOUT_HOOKED = true
+	end
+end
+
+-- Function to hook the "UpdateUsable" function of actionButtons
+GreyOnCooldown.HookGOCActionBarButtonUpdateUsable = function(actionBarButton)
+	if ((ActionButtonGreyOnCooldown_UpdateUsable == nil) or (type(ActionButtonGreyOnCooldown_UpdateUsable) ~= "function")) then
+		function ActionButtonGreyOnCooldown_UpdateUsable(self)
+			if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
+				if ((not self.onCooldown) or (self.onCooldown == 0)) then
+					local icon = self.icon
+					local spellID
+					local action
+					if GreyOnCooldown:CheckAddonLAB() then
+						if (self._state_type == "spell") then
+							spellID = self._state_action
+						else
+							spellID = self.spellID
+							action = self._state_action
+						end
+					else
+						spellID = self.spellID
+						action = self.action
+					end
+					if (icon) then
+						if (action and type(action)~="table" and type(action)~="string") then
+							local isUsable, notEnoughMana = IsUsableAction(action)
+							if (isUsable or notEnoughMana) then
+								if (icon:IsDesaturated()) then
+									icon:SetDesaturated(false)
+								end
+							else
+								if (not icon:IsDesaturated()) then
+									icon:SetDesaturated(true)
+								end
+							end
+						elseif (spellID and type(spellID)~="table" and type(spellID)~="string") then
+							local isUsable, notEnoughMana = C_Spell.IsSpellUsable(spellID)
+							if (isUsable or notEnoughMana) then
+								if (icon:IsDesaturated()) then
+									icon:SetDesaturated(false)
+								end
+							else
+								if (not icon:IsDesaturated()) then
+									icon:SetDesaturated(true)
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	if (actionBarButton ~= nil and actionBarButton.UpdateUsable ~= nil) then
+		if (GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_AB == nil) then
+			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_AB = {}
+		end
+		if not(GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_AB[actionBarButton]) then
+			hooksecurefunc(actionBarButton, "UpdateUsable", ActionButtonGreyOnCooldown_UpdateUsable)
+			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_AB[actionBarButton] = true
+		end
+	end
+end
+
+-- Function to hook some functions from the CooldownViewer Blizzard
+GreyOnCooldown.HookGOCCooldownViewer = function(cooldownViewer)
+	if ((CooldownViewerGreyOnCooldown_RefreshIcon == nil) or (type(CooldownViewerGreyOnCooldown_RefreshIcon) ~= "function")) then
+		function CooldownViewerGreyOnCooldown_RefreshIcon(self)
+			if (self.layoutIndex == nil or not(GreyOnCooldown.db.profile.desaturateUnusableActions)) then return end
+			local spellID = self:GetSpellID()
+			if not spellID then return end
+			local iconTexture = self:GetIconTexture()
+			if not iconTexture then return end
+			local desaturated = self.cooldownDesaturated and not(self:IsExpired())
+			if (desaturated) then
+				if not(iconTexture:IsDesaturated()) then
+					iconTexture:SetDesaturated(true)
+				end
+			else
+				local isUsable, notEnoughMana = C_Spell.IsSpellUsable(spellID)
+				local forceDesaturated = not(isUsable) and not(notEnoughMana)
+				if (forceDesaturated) then
+					if not(iconTexture:IsDesaturated()) then
+						iconTexture:SetDesaturated(true)
+					end
+				else
+					if (iconTexture:IsDesaturated()) then
+						iconTexture:SetDesaturated(false)
+					end
+				end
+			end
+		end
+	end
+	if ((CooldownViewerGreyOnCooldown_RefreshLayout == nil) or (type(CooldownViewerGreyOnCooldown_RefreshLayout) ~= "function")) then
+		function CooldownViewerGreyOnCooldown_RefreshLayout(self)
+			if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
+				for k, _ in self.itemFramePool:EnumerateActive() do
+					if not(GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RIC[k]) then
+						hooksecurefunc(k, "RefreshIconDesaturation", CooldownViewerGreyOnCooldown_RefreshIcon)
+						GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RIC[k] = true
+					end
+					if not(GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RID[k]) then
+						hooksecurefunc(k, "RefreshIconColor", CooldownViewerGreyOnCooldown_RefreshIcon)
+						GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RID[k] = true
+					end
+				end
+			end
+		end
+	end
+	if (cooldownViewer ~= nil and cooldownViewer.itemFramePool ~= nil) then
+		if (GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RL == nil) then
+			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RL = {}
+		end
+		if (GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RIC == nil) then
+			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RIC = {}
+		end
+		if (GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RID == nil) then
+			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RID = {}
+		end
+		if not(GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RL[cooldownViewer]) then
+			hooksecurefunc(cooldownViewer, "RefreshLayout", CooldownViewerGreyOnCooldown_RefreshLayout)
+			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED_CV_RL[cooldownViewer] = true
+		end
+		CooldownViewerGreyOnCooldown_RefreshLayout(cooldownViewer)
+	end
+end
+
+-- GreyOnCooldown main function to desaturate the entire action icon when the spell is on cooldown or unusable
 function GreyOnCooldown:HookGreyOnCooldownIcons()
-	-- Main hook function (regular action buttons)
+	-- Main hooks for 'ActionButtons'
 	if (not GREYONCOOLDOWN_HOOKED) then
 		local UpdateFuncCache = {}
 		function ActionButtonGreyOnCooldown_UpdateCooldown(self, expectedUpdate)
@@ -392,92 +598,66 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 		hooksecurefunc('ActionButton_UpdateCooldown', ActionButtonGreyOnCooldown_UpdateCooldown)
 		GREYONCOOLDOWN_HOOKED = true
 	end
-	-- Aux hook function for 'UpdateUsable'
 	if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
-		-- Aux hook function for 'UpdateUsable' (regular action buttons)
+		-- Aux hooks for 'UpdateUsable'
 		if (not GREYONCOOLDOWN_UPDATEUSABLE_HOOKED) then
-			local function HookGOCActionBarButtonUpdateUsable(actionBarButton)
-				if (actionBarButton.UpdateUsable ~= nil) then
-					hooksecurefunc(actionBarButton, "UpdateUsable", function(self)
-						if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
-							if ((not self.onCooldown) or (self.onCooldown == 0)) then
-								local icon = self.icon
-								local spellID
-								local action
-								if GreyOnCooldown:CheckAddonLAB() then
-									if (self._state_type == "spell") then
-										spellID = self._state_action
-									else
-										spellID = self.spellID
-										action = self._state_action
-									end
-								else
-									spellID = self.spellID
-									action = self.action
-								end
-								if (icon and action and ((type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string"))) then
-									local isUsable, notEnoughMana = IsUsableAction(action)
-									if (isUsable or notEnoughMana) then
-										if (icon:IsDesaturated()) then
-											icon:SetDesaturated(false)
-										end
-									else
-										if (not icon:IsDesaturated()) then
-											icon:SetDesaturated(true)
-										end
-									end
-								end
-							end
-						end
-					end)
-				end
-			end
 			for i = 1, 12 do
 				local actionButton
 				actionButton = _G["ExtraActionButton"..i]
 				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
 				end
 				actionButton = _G["ActionButton"..i]
 				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
 				end
 				actionButton = _G["MultiBarBottomLeftButton"..i]
 				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
 				end
 				actionButton = _G["MultiBarBottomRightButton"..i]
 				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
 				end
 				actionButton = _G["MultiBarLeftButton"..i]
 				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
 				end
 				actionButton = _G["MultiBarRightButton"..i]
 				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
 				end
 				actionButton = _G["PetActionButton"..i]
 				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
 				end
 				actionButton = _G["StanceButton"..i]
 				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
 				end
 				actionButton = _G["PossessButton"..i]
 				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
 				end
 				actionButton = _G["OverrideActionBarButton"..i]
 				if (actionButton) then
-					HookGOCActionBarButtonUpdateUsable(actionButton)
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
 				end
 			end
+			for i = 1, 40 do
+				local actionButton = _G["SpellFlyoutPopupButton"..i]
+				if (actionButton) then
+					GreyOnCooldown.HookGOCActionBarButtonUpdateUsable(actionButton)
+				end
+			end
+			-- Aux hooks for 'CooldownViewer' frames
+			GreyOnCooldown.HookGOCCooldownViewer(EssentialCooldownViewer)
+			GreyOnCooldown.HookGOCCooldownViewer(UtilityCooldownViewer)
+			-- Aux hooks for 'SpellFlyout'
+			GreyOnCooldown:HookGOCSpellFlyout()
 			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED = true
 		end
-		-- Aux hook function for 'UpdateUsable' (LAB action buttons)
+		-- Aux hooks for 'UpdateUsable' (LAB action buttons)
 		if (GreyOnCooldown.AddonLABIsPresent) then
 			local LibActionButton = LibStub:GetLibrary("LibActionButton-1.0", true)
 			if LibActionButton then

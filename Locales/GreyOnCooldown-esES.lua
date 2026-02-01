@@ -1,5 +1,5 @@
 local L = LibStub("AceLocale-3.0"):NewLocale("GreyOnCooldown","esES",false)
-if not L then return end 
+if not L then return end
 
 L[''] = true
 L['GreyOnCooldown'] = true
@@ -22,17 +22,20 @@ L['DisableConsoleStatusMessages'] = 'Deshabilitar los mensajes de estado de la c
 L['DisableConsoleStatusMessagesDesc'] = 'Marca esta opción para evitar que se muestren los mensajes de estado en la consola'
 L['DesaturateUnusableActions'] = 'Desaturar acciones no usables'
 L['DesaturateUnusableActionsDesc'] = 'Desaturar las acciones no usables (como talentos no aprendidos) independientemente de su cooldown'
+L['DesaturatePetActionButtons'] = 'Desaturar los PetActionButtons'
+L['DesaturatePetActionButtonsDesc'] = 'Marca esta opción para desaturar los botones de acción de la mascota en su barra de acción cuando estén en cooldown'
 L['DisableAddonCompartmentIntegration'] = 'Desactivar la integración con AddonCompartment'
 L['DisableAddonCompartmentIntegrationDesc'] = 'Marca esta opción para no incluir el addon GreyOnCooldown en el menú desplegable del AddonCompartment (accesible desde el minimapa)'
 L['minDuration'] = 'minDuration'
 L['minDurationDesc'] = 'Establece el valor mínimo (en segundos) del cooldown para ser desaturado'
 L['RELOADUI_MSG'] = '|cffffd200GreyOnCooldown|r\n\n|cffff0000ReloadUI:|r Para aplicar esta acción es necesario recargar la inferfaz. Si deseas seguir con esta operación, pulsa \'Aceptar\', de lo contrario pulsa \'Cancelar\' o la tecla \'Escape\''
 
+L['GREYONCOOLDOWN_OPENPANEL_AFTERCOMBAT'] = 'El panel de opciones se abrirá una vez finalizado el combate.'
 L['GREYONCOOLDOWN_HELP_LINE1'] = 'Comandos disponibles:'
 L['GREYONCOOLDOWN_HELP_LINE2'] = '-----------------'
 L['GREYONCOOLDOWN_HELP_LINE3'] = '/GreyOnCooldown (o /GOC): Muestra el panel de configuración de GreyOnCooldown.'
 L['GREYONCOOLDOWN_HELP_LINE4'] = '/GreyOnCooldown <enable|disable> o /GreyOnCooldown <on|off>: Activa o desactiva GreyOnCooldown.'
 L['GREYONCOOLDOWN_HELP_LINE5'] = '/GreyOnCooldown dcsm <on|off|default>: Activa/desactiva los mensajes de estado de la consola.'
 L['GREYONCOOLDOWN_HELP_LINE6'] = '/GreyOnCooldown dua <on|off|default>: Activa/desactiva la desaturación de acciones no usables.'
-L['GREYONCOOLDOWN_HELP_LINE7'] = '/GreyOnCooldown minduration <value|default>: Establece el valor de la opción minDuration.'
+L['GREYONCOOLDOWN_HELP_LINE7'] = '/GreyOnCooldown dpab <on|off|default>: Activa/desactiva la desaturación de de los botones de acción de la mascota.'
 L['GREYONCOOLDOWN_HELP_LINE8'] = '/GreyOnCooldown profiles: Muestra el panel de configuración de perfiles de GreyOnCooldown.'

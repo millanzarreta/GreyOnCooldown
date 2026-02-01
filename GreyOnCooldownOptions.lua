@@ -45,7 +45,7 @@ GreyOnCooldown.optionsTable = {
 						if value then
 							if (not GreyOnCooldown:IsEnabled()) then
 								GreyOnCooldown:Enable()
-								GreyOnCooldown:MainFunction() 
+								GreyOnCooldown:MainFunction()
 							end
 						else
 							if (GreyOnCooldown:IsEnabled()) then
@@ -83,8 +83,13 @@ GreyOnCooldown.optionsTable = {
 						GreyOnCooldown:AddonCompartmentIntegration(not(value))
 					end
 				},
-				desaturateUnusableActions = {
+				Spacer2 = {
+					type = "description",
 					order = 8,
+					name = " "
+				},
+				desaturateUnusableActions = {
+					order = 9,
 					type = "toggle",
 					name = L['DesaturateUnusableActions'],
 					desc = L['DesaturateUnusableActionsDesc'],
@@ -92,34 +97,31 @@ GreyOnCooldown.optionsTable = {
 					get = function() return GreyOnCooldown.db.profile.desaturateUnusableActions end,
 					set = function(_,value)
 						GreyOnCooldown.db.profile.desaturateUnusableActions = value
-						if (GreyOnCooldown:IsEnabled() and value) then
-							GreyOnCooldown:HookGreyOnCooldownIcons()
-							GreyOnCooldown:CheckAddonLAB()
+						if (GreyOnCooldown:IsEnabled()) then
+							if (GREYONCOOLDOWN_HOOKED == GreyOnCooldown) then
+								GreyOnCooldown:UpdateAllActionButtons()
+							end
 						end
 					end
 				},
-				minDuration = {
-					order = 9,
-					type = "range",
-					width = "double",
-					min = 0.01,
-					softMin = 0.01,
-					softMax = 12,
-					step = 0.01,
-					bigStep = 0.05,
-					name = L['minDuration'],
-					desc = L['minDurationDesc'],
-					get = function() return GreyOnCooldown.db.profile.minDuration end,
-					set = function(_,value)
-						GreyOnCooldown.db.profile.minDuration = value
-					end
-				},
-				minDurationToDefault = {
+				desaturatePetActionButtons = {
 					order = 10,
-					type = "execute",
-					name = '|T851904:0|t '..L["Default"],
-					desc = L["DefaultDesc"],
-					func  = function() GreyOnCooldown.db.profile.minDuration = GreyOnCooldown.db.defaults.profile.minDuration end
+					type = "toggle",
+					name = L['DesaturatePetActionButtons'],
+					desc = L['DesaturatePetActionButtonsDesc'],
+					width = "double",
+					get = function() return GreyOnCooldown.db.profile.desaturatePetActionButtons end,
+					set = function(_,value)
+						GreyOnCooldown.db.profile.desaturatePetActionButtons = value
+						if (GreyOnCooldown:IsEnabled()) then
+							if (GREYONCOOLDOWN_HOOKED == GreyOnCooldown) then
+								GreyOnCooldown:HookGOCPetActionButtons()
+								if (GreyOnCooldown:CheckAddonBT4()) then
+									GreyOnCooldown:HookGOCBT4PetActionButtons()
+								end
+							end
+						end
+					end
 				}
 			}
 		}

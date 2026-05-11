@@ -92,8 +92,24 @@ GreyOnCooldown.optionsTable = {
 						end
 					end
 				},
-				desaturatePetActionButtons = {
+				desaturateActionsWithoutResources = {
 					order = 9,
+					type = "toggle",
+					name = L['DesaturateActionsWithoutResources'],
+					desc = L['DesaturateActionsWithoutResourcesDesc'],
+					width = "double",
+					get = function() return GreyOnCooldown.db.profile.desaturateActionsWithoutResources end,
+					set = function(_,value)
+						GreyOnCooldown.db.profile.desaturateActionsWithoutResources = value
+						if (GreyOnCooldown:IsEnabled()) then
+							if (GREYONCOOLDOWN_HOOKED == GreyOnCooldown) then
+								GreyOnCooldown:UpdateAllActionButtons()
+							end
+						end
+					end
+				},
+				desaturatePetActionButtons = {
+					order = 10,
 					type = "toggle",
 					name = L['DesaturatePetActionButtons'],
 					desc = L['DesaturatePetActionButtonsDesc'],
@@ -112,7 +128,7 @@ GreyOnCooldown.optionsTable = {
 					end
 				},
 				minDuration = {
-					order = 10,
+					order = 11,
 					type = "range",
 					width = "double",
 					min = 0.01,
@@ -128,11 +144,11 @@ GreyOnCooldown.optionsTable = {
 					end
 				},
 				minDurationToDefault = {
-					order = 11,
+					order = 12,
 					type = "execute",
 					name = '|T851904:0|t '..L["Default"],
 					desc = L["DefaultDesc"],
-					func  = function() GreyOnCooldown.db.profile.minDuration = GreyOnCooldown.db.defaults.profile.minDuration end
+					func = function() GreyOnCooldown.db.profile.minDuration = GreyOnCooldown.db.defaults.profile.minDuration end
 				}
 			}
 		}

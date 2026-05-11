@@ -1,7 +1,7 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.1.7                                               --
+-- Version: 1.1.8                                               --
 -- WoW Game Version: 2.5.5                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
@@ -45,13 +45,14 @@ GreyOnCooldown.defaults = {
 		enabled = true,
 		disabledConsoleStatusMessages = false,
 		desaturateUnusableActions = true,
+		desaturateActionsWithoutResources = false,
 		desaturatePetActionButtons = true,
 		minDuration = 2.01
 	}
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.1.7"
+GreyOnCooldown.VERSION = "1.1.8"
 GreyOnCooldown.NUM_ACTIONBAR_BUTTONS = NUM_ACTIONBAR_BUTTONS or 12
 GreyOnCooldown.NUM_PET_ACTION_SLOTS = NUM_PET_ACTION_SLOTS or 10
 GreyOnCooldown.CheckAddonsWindowTime = 90
@@ -62,6 +63,7 @@ GreyOnCooldown.AddonLABIsPresent = nil
 GreyOnCooldown.AddonBT4IsPresent = nil
 GreyOnCooldown.AddonDominosIsPresent = nil
 GreyOnCooldown.LABButtonsTable = {}
+GreyOnCooldown.LABMethodHooks = {}
 GreyOnCooldown.LABUpdateFuncCache1 = {}
 GreyOnCooldown.LABUpdateFuncCache2 = {}
 GreyOnCooldown.GOCLoadTimestamp = nil
@@ -181,6 +183,30 @@ function GreyOnCooldown:SlashCommand(str)
 			end
 			if not(GreyOnCooldown.db.profile.disabledConsoleStatusMessages) then
 				GreyOnCooldown:Print("|cffd2a679" .. L['GreyOnCooldown'] .. '->desaturateUnusableActions = ' .. tostring(GreyOnCooldown.db.profile.desaturateUnusableActions) .. "|r")
+			end
+		end
+	elseif (cmd == "desaturateactionswithoutresources") or (cmd == "desaturateawr") or (cmd == "dawr") then
+		local newValue
+		if (arg1 == "") or (arg1 == "toggle") then
+			newValue = not(GreyOnCooldown.db.profile.desaturateActionsWithoutResources)
+		elseif (arg1 == "default") then
+			newValue = GreyOnCooldown.db.defaults.profile.desaturateActionsWithoutResources
+		elseif (arg1 == "on") or (arg1 == "enable") or (arg1 == "1") then
+			newValue = true
+		elseif (arg1 == "off") or (arg1 == "disable") or (arg1 == "0") or (arg1 == "-1") then
+			newValue = false
+		end
+		if (newValue ~= nil) then
+			if (GreyOnCooldown.db.profile.desaturateActionsWithoutResources ~= newValue) then
+				GreyOnCooldown.db.profile.desaturateActionsWithoutResources = newValue
+				if (GreyOnCooldown:IsEnabled()) then
+					if (GREYONCOOLDOWN_HOOKED == GreyOnCooldown) then
+						GreyOnCooldown:UpdateAllActionButtons()
+					end
+				end
+			end
+			if not(GreyOnCooldown.db.profile.disabledConsoleStatusMessages) then
+				GreyOnCooldown:Print("|cffd2a679" .. L['GreyOnCooldown'] .. '->desaturateActionsWithoutResources = ' .. tostring(GreyOnCooldown.db.profile.desaturateActionsWithoutResources) .. "|r")
 			end
 		end
 	elseif (cmd == "desaturatepetactionbuttons") or (cmd == "desaturatepab") or (cmd == "dpab") then
@@ -305,6 +331,18 @@ function GreyOnCooldown:UpdateAllActionButtons()
 		if (actionButton and actionButton.GOCUpdateCheck) then
 			actionButton:GOCUpdateCheck()
 		end
+		actionButton = _G["MultiBar5Button"..i]
+		if (actionButton and actionButton.GOCUpdateCheck) then
+			actionButton:GOCUpdateCheck()
+		end
+		actionButton = _G["MultiBar6Button"..i]
+		if (actionButton and actionButton.GOCUpdateCheck) then
+			actionButton:GOCUpdateCheck()
+		end
+		actionButton = _G["MultiBar7Button"..i]
+		if (actionButton and actionButton.GOCUpdateCheck) then
+			actionButton:GOCUpdateCheck()
+		end
 		actionButton = _G["StanceButton"..i]
 		if (actionButton and actionButton.GOCUpdateCheck) then
 			actionButton:GOCUpdateCheck()
@@ -366,22 +404,28 @@ end
 -- Main GOC ActionButton Update function to desaturate the entire action icon when the spell is on cooldown or unusable
 GreyOnCooldown.GOCActionButtonUpdateCheck = function(self)
 	if not(self.icon) then return end
-	local action
-	local spellID
+	local action = self.action
+	local spellID = self.spellID
 	if GreyOnCooldown:CheckAddonLAB() then
 		if (self._state_type == "action") then
 			action = self._state_action
+			spellID = nil
 		elseif (self._state_type == "spell") then
 			spellID = self._state_action
+			action = nil
+		elseif (self._state_type ~= nil) then
+			action = nil
+			spellID = nil
 		end
-	else
-		action = self.action
-		spellID = self.spellID
 	end
 	if (action) then
-		if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
+		if (GreyOnCooldown.db.profile.desaturateUnusableActions or GreyOnCooldown.db.profile.desaturateActionsWithoutResources) then
 			local isUsable, notEnoughMana = IsUsableAction(action)
-			if not(isUsable or notEnoughMana) then
+			if (GreyOnCooldown.db.profile.desaturateUnusableActions and not(isUsable or notEnoughMana)) then
+				self.icon:SetDesaturated(true)
+				return
+			end
+			if (GreyOnCooldown.db.profile.desaturateActionsWithoutResources and (not(isUsable) and notEnoughMana)) then
 				self.icon:SetDesaturated(true)
 				return
 			end
@@ -393,9 +437,13 @@ GreyOnCooldown.GOCActionButtonUpdateCheck = function(self)
 			self.icon:SetDesaturated(false)
 		end
 	elseif (spellID) then
-		if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
+		if (GreyOnCooldown.db.profile.desaturateUnusableActions or GreyOnCooldown.db.profile.desaturateActionsWithoutResources) then
 			local isUsable, notEnoughMana = C_Spell_IsSpellUsable(spellID)
-			if not(isUsable or notEnoughMana) then
+			if (GreyOnCooldown.db.profile.desaturateUnusableActions and not(isUsable or notEnoughMana)) then
+				self.icon:SetDesaturated(true)
+				return
+			end
+			if (GreyOnCooldown.db.profile.desaturateActionsWithoutResources and (not(isUsable) and notEnoughMana)) then
 				self.icon:SetDesaturated(true)
 				return
 			end
@@ -648,6 +696,18 @@ function GreyOnCooldown:HookGOCActionButtons()
 		if (actionButton) then
 			GreyOnCooldown:HookGOCActionButtonUpdate(actionButton)
 		end
+		actionButton = _G["MultiBar5Button"..i]
+		if (actionButton) then
+			GreyOnCooldown:HookGOCActionButtonUpdate(actionButton)
+		end
+		actionButton = _G["MultiBar6Button"..i]
+		if (actionButton) then
+			GreyOnCooldown:HookGOCActionButtonUpdate(actionButton)
+		end
+		actionButton = _G["MultiBar7Button"..i]
+		if (actionButton) then
+			GreyOnCooldown:HookGOCActionButtonUpdate(actionButton)
+		end
 		actionButton = _G["StanceButton"..i]
 		if (actionButton) then
 			GreyOnCooldown:HookGOCActionButtonUpdate(actionButton)
@@ -723,9 +783,13 @@ end
 
 -- Hook function to update the LAB ActionButton (self)
 GreyOnCooldown.LABButtonUpdateHookFunc = function(self)
+	if not self.GOCUpdateCheck then return end
 	local func = GreyOnCooldown.LABUpdateFuncCache1[self]
 	if not func then
-		func = function() self:GOCUpdateCheck() end
+		func = function()
+			self:GOCUpdateCheck()
+			self.cooldown:HookScript("OnCooldownDone", GreyOnCooldown.ButtonParentDelayedUpdateHookFunc)
+		end
 		GreyOnCooldown.LABUpdateFuncCache1[self] = func
 	end
 	C_Timer.After(0.01, func)
@@ -733,6 +797,7 @@ end
 
 -- Hook function to update the LAB ActionButton (self:GetParent())
 GreyOnCooldown.LABButtonParentUpdateHookFunc = function(self)
+	if not self:GetParent().GOCUpdateCheck then return end
 	local func = GreyOnCooldown.LABUpdateFuncCache2[self]
 	if not func then
 		func = function() self:GetParent():GOCUpdateCheck() end
@@ -743,15 +808,40 @@ end
 
 -- Function to set the hooks for a new LAB ActionButton
 function GreyOnCooldown:HookGOCLABActionButtonUpdate(button)
-	if ((button ~= nil) and not(self.LABButtonsTable[button])) then
-		if (not button.GREYONCOOLDOWN_LAB_HOOKED) then
-			self.LABButtonsTable[button] = true
+	if button == nil then return end
+	if (not button.GREYONCOOLDOWN_LAB_UPDATEACTION_HOOKED) then
+		-- Hook 'UpdateAction' to detect changes in the button prototype (button._state_type) and thus be able to hook the appropriate functions
+		if type(button.UpdateAction) == "function" then
+			hooksecurefunc(button, "UpdateAction", function()
+				GreyOnCooldown:HookGOCLABActionButtonUpdate(button)
+			end)
+		end
+		button.GREYONCOOLDOWN_LAB_UPDATEACTION_HOOKED = true
+	end
+	if (not button.GREYONCOOLDOWN_LAB_HOOKED_BT) then
+		if (not self.LABButtonsTable[button]) then
 			self:HookGOCActionButtonUpdate(button)
-			-- Hook 'GetPassiveCooldownSpellID' (LABButton) function because we can't hook the local 'UpdateCooldown' (LABButton) function
-			hooksecurefunc(button, "GetPassiveCooldownSpellID", GreyOnCooldown.LABButtonUpdateHookFunc)
 			-- Hook 'icon.SetVertexColor' (LABButton) function because we can't hook the local 'UpdateUsable' (LABButton) function
-			hooksecurefunc(button.icon, "SetVertexColor", GreyOnCooldown.LABButtonParentUpdateHookFunc)
-			button.GREYONCOOLDOWN_LAB_HOOKED = true
+			if button.icon and type(button.icon.SetVertexColor) == "function" then
+				hooksecurefunc(button.icon, "SetVertexColor", GreyOnCooldown.LABButtonParentUpdateHookFunc)
+			end
+			self.LABButtonsTable[button] = true
+			button.GREYONCOOLDOWN_LAB_HOOKED_BT = true
+		end
+	end
+	if button._state_type ~= "action" and button._state_type ~= "spell" then return end
+	local mt = getmetatable(button)
+	local methods = mt and mt.__index
+	if type(methods) == "table" then
+		if not rawget(methods, "GREYONCOOLDOWN_LAB_HOOKED_MT") then
+			if (not self.LABMethodHooks[methods]) then
+				-- Hook 'GetPassiveCooldownSpellID' (LABButton) function because we can't hook the local 'UpdateCooldown' (LABButton) function
+				if type(methods.GetPassiveCooldownSpellID) == "function" then
+					hooksecurefunc(methods, "GetPassiveCooldownSpellID", GreyOnCooldown.LABButtonUpdateHookFunc)
+				end
+				self.LABMethodHooks[methods] = true
+				methods.GREYONCOOLDOWN_LAB_HOOKED_MT = true
+			end
 		end
 	end
 end
@@ -858,27 +948,27 @@ end
 function GreyOnCooldown:DominosGetActionButtonName(id)
 	local DOMINOS_ADDON_NAME = Dominos ~= nil and type(Dominos.GetName) == "function" and Dominos:GetName() or "Dominos"
 	local DOMINOS_ACTION_BUTTON_NAME_TEMPLATE = DOMINOS_ADDON_NAME.."ActionButton%d"
-    if id <= 0 then
-        return
-    elseif id <= 24 then
-        return (DOMINOS_ACTION_BUTTON_NAME_TEMPLATE):format(id)
-    elseif id <= 36 then
-        return ("MultiBarRightActionButton%d"):format(id - 24)
-    elseif id <= 48 then
-        return ("MultiBarLeftActionButton%d"):format(id - 36)
-    elseif id <= 60 then
-        return ("MultiBarBottomRightActionButton%d"):format(id - 48)
-    elseif id <= 72 then
-        return ("MultiBarBottomLeftActionButton%d"):format(id - 60)
-    elseif id <= 132 then
-        return DOMINOS_ACTION_BUTTON_NAME_TEMPLATE:format(id)
-    elseif id <= 144 then
-        return ("MultiBar5ActionButton%d"):format(id - 132)
-    elseif id <= 156 then
-        return ("MultiBar6ActionButton%d"):format(id - 144)
-    elseif id <= 168 then
-        return ("MultiBar7ActionButton%d"):format(id - 156)
-    end
+	if id <= 0 then
+		return
+	elseif id <= 24 then
+		return (DOMINOS_ACTION_BUTTON_NAME_TEMPLATE):format(id)
+	elseif id <= 36 then
+		return ("MultiBarRightActionButton%d"):format(id - 24)
+	elseif id <= 48 then
+		return ("MultiBarLeftActionButton%d"):format(id - 36)
+	elseif id <= 60 then
+		return ("MultiBarBottomRightActionButton%d"):format(id - 48)
+	elseif id <= 72 then
+		return ("MultiBarBottomLeftActionButton%d"):format(id - 60)
+	elseif id <= 132 then
+		return DOMINOS_ACTION_BUTTON_NAME_TEMPLATE:format(id)
+	elseif id <= 144 then
+		return ("MultiBar5ActionButton%d"):format(id - 132)
+	elseif id <= 156 then
+		return ("MultiBar6ActionButton%d"):format(id - 144)
+	elseif id <= 168 then
+		return ("MultiBar7ActionButton%d"):format(id - 156)
+	end
 end
 
 -- Function to fast-check if Dominos addon is present

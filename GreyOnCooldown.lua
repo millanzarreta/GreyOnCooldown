@@ -1,7 +1,7 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.1.7                                               --
+-- Version: 1.1.8                                               --
 -- WoW Game Version: 1.15.8                                     --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
@@ -34,13 +34,14 @@ GreyOnCooldown.defaults = {
 		enabled = true,
 		disabledConsoleStatusMessages = false,
 		desaturateUnusableActions = true,
+		desaturateActionsWithoutResources = false,
 		desaturatePetActionButtons = true,
 		minDuration = 2.01
 	}
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.1.7"
+GreyOnCooldown.VERSION = "1.1.8"
 GreyOnCooldown.NUM_ACTIONBAR_BUTTONS = NUM_ACTIONBAR_BUTTONS or 12
 GreyOnCooldown.NUM_PET_ACTION_SLOTS = NUM_PET_ACTION_SLOTS or 10
 GreyOnCooldown.CheckAddonsWindowTime = 90
@@ -49,6 +50,7 @@ GreyOnCooldown.CheckAddonsTicker = nil
 GreyOnCooldown.AddonLABIsPresent = nil
 GreyOnCooldown.AddonBT4IsPresent = nil
 GreyOnCooldown.LABButtonsTable = {}
+GreyOnCooldown.LABMethodHooks = {}
 GreyOnCooldown.LABUpdateFuncCache1 = {}
 GreyOnCooldown.LABUpdateFuncCache2 = {}
 GreyOnCooldown.GOCLoadTimestamp = nil
@@ -172,6 +174,32 @@ function GreyOnCooldown:SlashCommand(str)
 			end
 			if not(GreyOnCooldown.db.profile.disabledConsoleStatusMessages) then
 				GreyOnCooldown:Print("|cffd2a679" .. L['GreyOnCooldown'] .. '->desaturateUnusableActions = ' .. tostring(GreyOnCooldown.db.profile.desaturateUnusableActions) .. "|r")
+			end
+		end
+	elseif (cmd == "desaturateactionswithoutresources") or (cmd == "desaturateawr") or (cmd == "dawr") then
+		local newValue
+		if (arg1 == "") or (arg1 == "toggle") then
+			newValue = not(GreyOnCooldown.db.profile.desaturateActionsWithoutResources)
+		elseif (arg1 == "default") then
+			newValue = GreyOnCooldown.db.defaults.profile.desaturateActionsWithoutResources
+		elseif (arg1 == "on") or (arg1 == "enable") or (arg1 == "1") then
+			newValue = true
+		elseif (arg1 == "off") or (arg1 == "disable") or (arg1 == "0") or (arg1 == "-1") then
+			newValue = false
+		end
+		if (newValue ~= nil) then
+			if (GreyOnCooldown.db.profile.desaturateActionsWithoutResources ~= newValue) then
+				GreyOnCooldown.db.profile.desaturateActionsWithoutResources = newValue
+				if (GreyOnCooldown:IsEnabled()) then
+					if (newValue) then
+						GreyOnCooldown:HookGreyOnCooldownIcons()
+					else
+						GreyOnCooldown:UpdateAllActionButtons()
+					end
+				end
+			end
+			if not(GreyOnCooldown.db.profile.disabledConsoleStatusMessages) then
+				GreyOnCooldown:Print("|cffd2a679" .. L['GreyOnCooldown'] .. '->desaturateActionsWithoutResources = ' .. tostring(GreyOnCooldown.db.profile.desaturateActionsWithoutResources) .. "|r")
 			end
 		end
 	elseif (cmd == "desaturatepetactionbuttons") or (cmd == "desaturatepab") or (cmd == "dpab") then
@@ -462,18 +490,19 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 		-- Main hooks for 'ActionButtons'
 		function ActionButtonGreyOnCooldown_UpdateCooldown(self, expectedUpdate)
 			local icon = self.icon
-			local spellID
-			local action
+			local action = self.action
+			local spellID = self.spellID
 			if GreyOnCooldown:CheckAddonLAB() then
-				if (self._state_type == "spell") then
-					spellID = self._state_action
-				else
-					spellID = self.spellID
+				if (self._state_type == "action") then
 					action = self._state_action
+					spellID = nil
+				elseif (self._state_type == "spell") then
+					spellID = self._state_action
+					action = nil
+				elseif (self._state_type ~= nil) then
+					action = nil
+					spellID = nil
 				end
-			else
-				spellID = self.spellID
-				action = self.action
 			end
 			if (icon and ((action and type(action)~="table" and type(action)~="string") or (spellID and type(spellID)~="table" and type(spellID)~="string"))) then
 				local start, duration
@@ -525,15 +554,28 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 					end
 				else
 					self.onCooldown = 0
-					if (GreyOnCooldown.db.profile.desaturateUnusableActions and action) then
-						local isUsable, notEnoughMana = IsUsableAction(action)
-						if (isUsable or notEnoughMana) then
-							if (icon:IsDesaturated()) then
-								icon:SetDesaturated(false)
+					if (GreyOnCooldown.db.profile.desaturateUnusableActions or GreyOnCooldown.db.profile.desaturateActionsWithoutResources) then
+						if (action and type(action)~="table" and type(action)~="string") then
+							local isUsable, notEnoughMana = IsUsableAction(action)
+							if ((GreyOnCooldown.db.profile.desaturateUnusableActions and not(isUsable or notEnoughMana)) or (GreyOnCooldown.db.profile.desaturateActionsWithoutResources and (not(isUsable) and notEnoughMana))) then
+								if (not icon:IsDesaturated()) then
+									icon:SetDesaturated(true)
+								end
+							else
+								if (icon:IsDesaturated()) then
+									icon:SetDesaturated(false)
+								end
 							end
-						else
-							if (not icon:IsDesaturated()) then
-								icon:SetDesaturated(true)
+						elseif (spellID and type(spellID)~="table" and type(spellID)~="string") then
+							local isUsable, notEnoughMana = C_Spell.IsSpellUsable(spellID)
+							if ((GreyOnCooldown.db.profile.desaturateUnusableActions and not(isUsable or notEnoughMana)) or (GreyOnCooldown.db.profile.desaturateActionsWithoutResources and (not(isUsable) and notEnoughMana))) then
+								if (not icon:IsDesaturated()) then
+									icon:SetDesaturated(true)
+								end
+							else
+								if (icon:IsDesaturated()) then
+									icon:SetDesaturated(false)
+								end
 							end
 						end
 					else
@@ -552,54 +594,56 @@ function GreyOnCooldown:HookGreyOnCooldownIcons()
 		end
 		GREYONCOOLDOWN_HOOKED = true
 	end
-	if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
+	if (GreyOnCooldown.db.profile.desaturateUnusableActions or GreyOnCooldown.db.profile.desaturateActionsWithoutResources) then
 		-- Aux hooks for 'UpdateUsable'
 		if (not GREYONCOOLDOWN_UPDATEUSABLE_HOOKED) then
-			hooksecurefunc('ActionButton_UpdateUsable', function(self)
-				if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
+			function ActionButtonGreyOnCooldown_UpdateUsable(self)
+				if (GreyOnCooldown.db.profile.desaturateUnusableActions or GreyOnCooldown.db.profile.desaturateActionsWithoutResources) then
 					if ((not self.onCooldown) or (self.onCooldown == 0)) then
 						local icon = self.icon
-						local spellID
-						local action
+						local action = self.action
+						local spellID = self.spellID
 						if GreyOnCooldown:CheckAddonLAB() then
-							if (self._state_type == "spell") then
-								spellID = self._state_action
-							else
-								spellID = self.spellID
+							if (self._state_type == "action") then
 								action = self._state_action
+								spellID = nil
+							elseif (self._state_type == "spell") then
+								spellID = self._state_action
+								action = nil
+							elseif (self._state_type ~= nil) then
+								action = nil
+								spellID = nil
 							end
-						else
-							spellID = self.spellID
-							action = self.action
 						end
 						if (icon) then
 							if (action and type(action)~="table" and type(action)~="string") then
 								local isUsable, notEnoughMana = IsUsableAction(action)
-								if (isUsable or notEnoughMana) then
-									if (icon:IsDesaturated()) then
-										icon:SetDesaturated(false)
-									end
-								else
+								if ((GreyOnCooldown.db.profile.desaturateUnusableActions and not(isUsable or notEnoughMana)) or (GreyOnCooldown.db.profile.desaturateActionsWithoutResources and (not(isUsable) and notEnoughMana))) then
 									if (not icon:IsDesaturated()) then
 										icon:SetDesaturated(true)
+									end
+								else
+									if (icon:IsDesaturated()) then
+										icon:SetDesaturated(false)
 									end
 								end
 							elseif (spellID and type(spellID)~="table" and type(spellID)~="string") then
 								local isUsable, notEnoughMana = C_Spell.IsSpellUsable(spellID)
-								if (isUsable or notEnoughMana) then
-									if (icon:IsDesaturated()) then
-										icon:SetDesaturated(false)
-									end
-								else
+								if ((GreyOnCooldown.db.profile.desaturateUnusableActions and not(isUsable or notEnoughMana)) or (GreyOnCooldown.db.profile.desaturateActionsWithoutResources and (not(isUsable) and notEnoughMana))) then
 									if (not icon:IsDesaturated()) then
 										icon:SetDesaturated(true)
+									end
+								else
+									if (icon:IsDesaturated()) then
+										icon:SetDesaturated(false)
 									end
 								end
 							end
 						end
 					end
 				end
-			end)
+			end
+			hooksecurefunc('ActionButton_UpdateUsable', ActionButtonGreyOnCooldown_UpdateUsable)
 			GREYONCOOLDOWN_UPDATEUSABLE_HOOKED = true
 		end
 		-- Aux hooks for 'UpdateUsable' (LAB action buttons)
@@ -640,14 +684,39 @@ end
 
 -- Function to set the hooks for a new LAB ActionButton
 function GreyOnCooldown:HookGOCLABActionButtonUpdate(button)
-	if ((button ~= nil) and not(self.LABButtonsTable[button])) then
-		if (not button.GREYONCOOLDOWN_LAB_HOOKED) then
-			self.LABButtonsTable[button] = true
-			-- Hook 'GetPassiveCooldownSpellID' (LABButton) function because we can't hook the local 'UpdateCooldown' (LABButton) function
-			hooksecurefunc(button, "GetPassiveCooldownSpellID", GreyOnCooldown.LABButtonUpdateHookFunc)
+	if button == nil then return end
+	if (not button.GREYONCOOLDOWN_LAB_UPDATEACTION_HOOKED) then
+		-- Hook 'UpdateAction' to detect changes in the button prototype (button._state_type) and thus be able to hook the appropriate functions
+		if type(button.UpdateAction) == "function" then
+			hooksecurefunc(button, "UpdateAction", function()
+				GreyOnCooldown:HookGOCLABActionButtonUpdate(button)
+			end)
+		end
+		button.GREYONCOOLDOWN_LAB_UPDATEACTION_HOOKED = true
+	end
+	if (not button.GREYONCOOLDOWN_LAB_HOOKED_BT) then
+		if (not self.LABButtonsTable[button]) then
 			-- Hook 'icon.SetVertexColor' (LABButton) function because we can't hook the local 'UpdateUsable' (LABButton) function
-			hooksecurefunc(button.icon, "SetVertexColor", GreyOnCooldown.LABButtonParentUpdateHookFunc)
-			button.GREYONCOOLDOWN_LAB_HOOKED = true
+			if button.icon and type(button.icon.SetVertexColor) == "function" then
+				hooksecurefunc(button.icon, "SetVertexColor", GreyOnCooldown.LABButtonParentUpdateHookFunc)
+			end
+			self.LABButtonsTable[button] = true
+			button.GREYONCOOLDOWN_LAB_HOOKED_BT = true
+		end
+	end
+	if button._state_type ~= "action" and button._state_type ~= "spell" then return end
+	local mt = getmetatable(button)
+	local methods = mt and mt.__index
+	if type(methods) == "table" then
+		if not rawget(methods, "GREYONCOOLDOWN_LAB_HOOKED_MT") then
+			if (not self.LABMethodHooks[methods]) then
+				-- Hook 'GetPassiveCooldownSpellID' (LABButton) function because we can't hook the local 'UpdateCooldown' (LABButton) function
+				if type(methods.GetPassiveCooldownSpellID) == "function" then
+					hooksecurefunc(methods, "GetPassiveCooldownSpellID", GreyOnCooldown.LABButtonUpdateHookFunc)
+				end
+				self.LABMethodHooks[methods] = true
+				methods.GREYONCOOLDOWN_LAB_HOOKED_MT = true
+			end
 		end
 	end
 end
@@ -668,7 +737,7 @@ function GreyOnCooldown:CheckAddonLAB()
 					end)
 					LibActionButton.GREYONCOOLDOWN_ONBUTTONUPDATE_LAB_HOOKED = true
 				end
-				if (self.db.profile.desaturateUnusableActions) then
+				if (self.db.profile.desaturateUnusableActions or self.db.profile.desaturateActionsWithoutResources) then
 					if (not LibActionButton.GREYONCOOLDOWN_ONBUTTONUSABLE_LAB_HOOKED) then
 						LibActionButton.RegisterCallback(self, "OnButtonUsable", function(event, button)
 							ActionButtonGreyOnCooldown_UpdateCooldown(button)

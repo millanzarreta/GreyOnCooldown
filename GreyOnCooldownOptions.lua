@@ -104,8 +104,24 @@ GreyOnCooldown.optionsTable = {
 						end
 					end
 				},
-				desaturatePetActionButtons = {
+				desaturateActionsWithoutResources = {
 					order = 10,
+					type = "toggle",
+					name = L['DesaturateActionsWithoutResources'],
+					desc = L['DesaturateActionsWithoutResourcesDesc'],
+					width = "double",
+					get = function() return GreyOnCooldown.db.profile.desaturateActionsWithoutResources end,
+					set = function(_,value)
+						GreyOnCooldown.db.profile.desaturateActionsWithoutResources = value
+						if (GreyOnCooldown:IsEnabled()) then
+							if (GREYONCOOLDOWN_HOOKED == GreyOnCooldown) then
+								GreyOnCooldown:UpdateAllActionButtons()
+							end
+						end
+					end
+				},
+				desaturatePetActionButtons = {
+					order = 11,
 					type = "toggle",
 					name = L['DesaturatePetActionButtons'],
 					desc = L['DesaturatePetActionButtonsDesc'],

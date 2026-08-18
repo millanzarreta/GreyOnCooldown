@@ -1,7 +1,7 @@
-## Interface: 120005
+## Interface: 120100
 ## Title: GreyOnCooldown
 ## Author: millanzarreta
-## Version: 2.0.1
+## Version: 2.0.2
 ## IconTexture: Interface\Addons\GreyOnCooldown\micon
 ## Notes: Shows the action bar icons desaturated when they are on cooldown
 ## Notes-esES: Muestra los iconos de la barra de acción desaturados cuando se encuentren en tiempo de reutilización
@@ -24,7 +24,7 @@
 ## LoadOnDemand: 0
 ## SavedVariables: GreyOnCooldown_DB
 ## OptionalDeps: Ace3
-## X-Curse-Packaged-Version: 2.0.1
+## X-Curse-Packaged-Version: 2.0.2
 ## X-Curse-Project-Name: GreyOnCooldown
 ## X-Curse-Project-ID: GreyOnCooldown
 ## X-Curse-Repository-ID: GreyOnCooldown-mainline

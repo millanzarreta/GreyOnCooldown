@@ -86,9 +86,7 @@ GreyOnCooldown.optionsTable = {
 					set = function(_,value)
 						GreyOnCooldown.db.profile.desaturateUnusableActions = value
 						if (GreyOnCooldown:IsEnabled()) then
-							if (value) then
-								GreyOnCooldown:HookGreyOnCooldownIcons()
-							else
+							if (GREYONCOOLDOWN_HOOKED == GreyOnCooldown) then
 								GreyOnCooldown:UpdateAllActionButtons()
 							end
 						end
@@ -104,9 +102,7 @@ GreyOnCooldown.optionsTable = {
 					set = function(_,value)
 						GreyOnCooldown.db.profile.desaturateActionsWithoutResources = value
 						if (GreyOnCooldown:IsEnabled()) then
-							if (value) then
-								GreyOnCooldown:HookGreyOnCooldownIcons()
-							else
+							if (GREYONCOOLDOWN_HOOKED == GreyOnCooldown) then
 								GreyOnCooldown:UpdateAllActionButtons()
 							end
 						end
@@ -122,9 +118,11 @@ GreyOnCooldown.optionsTable = {
 					set = function(_,value)
 						GreyOnCooldown.db.profile.desaturatePetActionButtons = value
 						if (GreyOnCooldown:IsEnabled()) then
-							GreyOnCooldown:HookPetActionButtons()
-							if (GreyOnCooldown:CheckAddonBT4()) then
-								GreyOnCooldown:HookGOCBT4PetActionButtons()
+							if (GREYONCOOLDOWN_HOOKED == GreyOnCooldown) then
+								GreyOnCooldown:HookGOCPetActionButtons()
+								if (GreyOnCooldown:CheckAddonBT4()) then
+									GreyOnCooldown:HookGOCBT4PetActionButtons()
+								end
 							end
 						end
 					end
@@ -150,7 +148,7 @@ GreyOnCooldown.optionsTable = {
 					type = "execute",
 					name = '|T851904:0|t '..L["Default"],
 					desc = L["DefaultDesc"],
-					func  = function() GreyOnCooldown.db.profile.minDuration = GreyOnCooldown.db.defaults.profile.minDuration end
+					func = function() GreyOnCooldown.db.profile.minDuration = GreyOnCooldown.db.defaults.profile.minDuration end
 				}
 			}
 		}

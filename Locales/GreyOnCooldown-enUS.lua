@@ -30,6 +30,7 @@ L['minDuration'] = true
 L['minDurationDesc'] = 'Set the minimum value (in seconds) of the cooldown to be desaturated'
 L['RELOADUI_MSG'] = '|cffffd200GreyOnCooldown|r\n\n|cffff0000ReloadUI:|r To apply this action an interface reload is needed. If you wish to continue with this operation, push \'Accept\', otherwise push \'Cancel\' or the \'Escape\' key'
 
+L['GREYONCOOLDOWN_OPENPANEL_AFTERCOMBAT'] = 'The options panel will open after combat ends.'
 L['GREYONCOOLDOWN_HELP_LINE1'] = 'Available slash commands:'
 L['GREYONCOOLDOWN_HELP_LINE2'] = '-----------------'
 L['GREYONCOOLDOWN_HELP_LINE3'] = '/GreyOnCooldown (or /GOC): Shows the main GreyOnCooldown config panel.'

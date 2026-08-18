@@ -1,8 +1,8 @@
 -- ------------------------------------------------------------ --
 -- Addon: GreyOnCooldown                                        --
 --                                                              --
--- Version: 1.1.8                                               --
--- WoW Game Version: 2.5.5                                      --
+-- Version: 2.0.2                                               --
+-- WoW Game Version: 2.5.6                                      --
 -- Author: Millán - Sanguino                                    --
 --                                                              --
 -- License: GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 --
@@ -26,16 +26,17 @@ local L = LibStub("AceLocale-3.0"):GetLocale("GreyOnCooldown")
 
 local _G = _G
 local _
-local STANDARD_EPSILON = 0.0001
+local STANDARD_EPSILON = 0.001
 local type = type
 local pairs = pairs
 local ipairs = ipairs
 local next = next
+local InCombatLockdown = InCombatLockdown
 local GetPetActionInfo = GetPetActionInfo
 local GetPetActionSlotUsable = GetPetActionSlotUsable
 local GetPetActionCooldown = GetPetActionCooldown
-local IsUsableAction = IsUsableAction
-local GetActionCooldown = GetActionCooldown
+local C_ActionBar_IsUsableAction = C_ActionBar.IsUsableAction
+local C_ActionBar_GetActionCooldown = C_ActionBar.GetActionCooldown
 local C_Spell_IsSpellUsable = C_Spell.IsSpellUsable
 local C_Spell_GetSpellCooldown = C_Spell.GetSpellCooldown
 
@@ -52,21 +53,33 @@ GreyOnCooldown.defaults = {
 }
 
 -- Global variables
-GreyOnCooldown.VERSION = "1.1.8"
+GreyOnCooldown.VERSION = "2.0.2"
 GreyOnCooldown.NUM_ACTIONBAR_BUTTONS = NUM_ACTIONBAR_BUTTONS or 12
 GreyOnCooldown.NUM_PET_ACTION_SLOTS = NUM_PET_ACTION_SLOTS or 10
 GreyOnCooldown.CheckAddonsWindowTime = 90
 GreyOnCooldown.CheckAddonsTickTime = 4
 GreyOnCooldown.CheckAddonsTicker = nil
-GreyOnCooldown.UpdateFuncCache2 = {}
 GreyOnCooldown.AddonLABIsPresent = nil
 GreyOnCooldown.AddonBT4IsPresent = nil
 GreyOnCooldown.AddonDominosIsPresent = nil
 GreyOnCooldown.LABButtonsTable = {}
 GreyOnCooldown.LABMethodHooks = {}
-GreyOnCooldown.LABUpdateFuncCache1 = {}
-GreyOnCooldown.LABUpdateFuncCache2 = {}
+GreyOnCooldown.LABPendingButtonUpdates = {}
+GreyOnCooldown.LABButtonUpdateScheduled = false
 GreyOnCooldown.GOCLoadTimestamp = nil
+
+-- Sets up a frame and flags to defer protected functions until combat ends
+local fclFrame = CreateFrame("Frame")
+local delayFunc_GOC_ShowConfig = { false, 0 }
+fclFrame:SetScript("OnEvent", function(self, event)
+	if event=="PLAYER_REGEN_ENABLED" then
+		fclFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
+		if (delayFunc_GOC_ShowConfig[1]) then
+			delayFunc_GOC_ShowConfig[1] = false
+			GreyOnCooldown:ShowConfig(delayFunc_GOC_ShowConfig[2])
+		end
+	end
+end)
 
 -- First function fired
 function GreyOnCooldown:OnInitialize()
@@ -114,6 +127,13 @@ function GreyOnCooldown:RefreshConfig()
 		else
 			self:Enable()
 			self:MainFunction()
+			if (GREYONCOOLDOWN_HOOKED == self) then
+				self:HookGOCPetActionButtons()
+				if (self:CheckAddonBT4()) then
+					self:HookGOCBT4PetActionButtons()
+				end
+				self:UpdateAllActionButtons()
+			end
 		end
 	else
 		if (self.db.profile.enabled) then
@@ -292,6 +312,15 @@ end
 
 -- Show Options Menu
 function GreyOnCooldown:ShowConfig(category)
+	if InCombatLockdown() then
+		delayFunc_GOC_ShowConfig[1] = true
+		delayFunc_GOC_ShowConfig[2] = category
+		if (not fclFrame:IsEventRegistered("PLAYER_REGEN_ENABLED")) then
+			fclFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+		end
+		GreyOnCooldown:Print("|cffd2a679" .. L['GREYONCOOLDOWN_OPENPANEL_AFTERCOMBAT'] .. "|r")
+		return
+	end
 	if (category ~= nil) then
 		if (category == 0) then
 			Settings.OpenToCategory(self.optionsFramesCatId.general)
@@ -406,7 +435,7 @@ GreyOnCooldown.GOCActionButtonUpdateCheck = function(self)
 	if not(self.icon) then return end
 	local action = self.action
 	local spellID = self.spellID
-	if GreyOnCooldown:CheckAddonLAB() then
+	if GreyOnCooldown.AddonLABIsPresent then
 		if (self._state_type == "action") then
 			action = self._state_action
 			spellID = nil
@@ -420,7 +449,7 @@ GreyOnCooldown.GOCActionButtonUpdateCheck = function(self)
 	end
 	if (action) then
 		if (GreyOnCooldown.db.profile.desaturateUnusableActions or GreyOnCooldown.db.profile.desaturateActionsWithoutResources) then
-			local isUsable, notEnoughMana = IsUsableAction(action)
+			local isUsable, notEnoughMana = C_ActionBar_IsUsableAction(action)
 			if (GreyOnCooldown.db.profile.desaturateUnusableActions and not(isUsable or notEnoughMana)) then
 				self.icon:SetDesaturated(true)
 				return
@@ -430,8 +459,8 @@ GreyOnCooldown.GOCActionButtonUpdateCheck = function(self)
 				return
 			end
 		end
-		local _, duration = GetActionCooldown(action)
-		if (duration >= GreyOnCooldown.db.profile.minDuration) then
+		local cooldownInfo = C_ActionBar_GetActionCooldown(action)
+		if (cooldownInfo and cooldownInfo.duration >= GreyOnCooldown.db.profile.minDuration) then
 			self.icon:SetDesaturated(true)
 		else
 			self.icon:SetDesaturated(false)
@@ -449,19 +478,17 @@ GreyOnCooldown.GOCActionButtonUpdateCheck = function(self)
 			end
 		end
 		local spellCooldownInfo = C_Spell_GetSpellCooldown(spellID)
-		if spellCooldownInfo then
-			if (spellCooldownInfo.duration >= GreyOnCooldown.db.profile.minDuration) then
-				self.icon:SetDesaturated(true)
-			else
-				self.icon:SetDesaturated(false)
-			end
+		if (spellCooldownInfo and spellCooldownInfo.duration >= GreyOnCooldown.db.profile.minDuration) then
+			self.icon:SetDesaturated(true)
+		else
+			self.icon:SetDesaturated(false)
 		end
 	end
 end
 
 -- Main GOC PetActionButton Update function to desaturate the entire action icon when the spell is on cooldown or unusable
 GreyOnCooldown.GOCPetActionButtonUpdateCheck = function(self)
-	local index = self.index or self.id
+	local index = self.index or self.id or (type(self.GetID)=="function" and self:GetID())
 	if not(self.icon and index and GetPetActionInfo(index)) then return end
 	if (GreyOnCooldown.db.profile.desaturatePetActionButtons) then
 		if (GreyOnCooldown.db.profile.desaturateUnusableActions) then
@@ -495,14 +522,9 @@ GreyOnCooldown.ButtonParentUpdateHookFunc = function(self)
 	end
 end
 
--- Hook function to delayed-update the ActionButton (self:GetParent())
-GreyOnCooldown.ButtonParentDelayedUpdateHookFunc = function(self)
-	local func = GreyOnCooldown.UpdateFuncCache2[self]
-	if not func then
-		func = function() self:GetParent():GOCUpdateCheck() end
-		GreyOnCooldown.UpdateFuncCache2[self] = func
-	end
-	C_Timer.After(0.01, func)
+-- Hook function to delayed-update the LAB ActionButton (self:GetParent())
+GreyOnCooldown.LABButtonParentDelayedUpdateHookFunc = function(self)
+	GreyOnCooldown:QueueLABButtonUpdate(self:GetParent(), false)
 end
 
 -- Function that establishes the needed GOC hooks for an ActionButton
@@ -521,7 +543,7 @@ function GreyOnCooldown:HookGOCActionButtonUpdate(button)
 			GREYONCOOLDOWN_ONCOOLDOWNDONE_HOOKED_ABC = {}
 		end
 		if not(GREYONCOOLDOWN_ONCOOLDOWNDONE_HOOKED_ABC[button]) then
-			button.cooldown:HookScript("OnCooldownDone", GreyOnCooldown.ButtonParentDelayedUpdateHookFunc)
+			button.cooldown:HookScript("OnCooldownDone", GreyOnCooldown.ButtonParentUpdateHookFunc)
 			GREYONCOOLDOWN_ONCOOLDOWNDONE_HOOKED_ABC[button] = true
 		end
 		if (GREYONCOOLDOWN_ONSHOW_HOOKED_ABC == nil) then
@@ -535,7 +557,7 @@ function GreyOnCooldown:HookGOCActionButtonUpdate(button)
 			GREYONCOOLDOWN_ONHIDE_HOOKED_ABC = {}
 		end
 		if not(GREYONCOOLDOWN_ONHIDE_HOOKED_ABC[button]) then
-			button.cooldown:HookScript("OnHide", GreyOnCooldown.ButtonParentDelayedUpdateHookFunc)
+			button.cooldown:HookScript("OnHide", GreyOnCooldown.ButtonParentUpdateHookFunc)
 			GREYONCOOLDOWN_ONHIDE_HOOKED_ABC[button] = true
 		end
 	end
@@ -587,7 +609,7 @@ function GreyOnCooldown:HookGOCPetActionButtonUpdate(button)
 			GREYONCOOLDOWN_ONCOOLDOWNDONE_HOOKED_ABC = {}
 		end
 		if not(GREYONCOOLDOWN_ONCOOLDOWNDONE_HOOKED_ABC[button]) then
-			button.cooldown:HookScript("OnCooldownDone", GreyOnCooldown.ButtonParentDelayedUpdateHookFunc)
+			button.cooldown:HookScript("OnCooldownDone", GreyOnCooldown.ButtonParentUpdateHookFunc)
 			GREYONCOOLDOWN_ONCOOLDOWNDONE_HOOKED_ABC[button] = true
 		end
 		if (GREYONCOOLDOWN_ONSHOW_HOOKED_ABC == nil) then
@@ -601,7 +623,7 @@ function GreyOnCooldown:HookGOCPetActionButtonUpdate(button)
 			GREYONCOOLDOWN_ONHIDE_HOOKED_ABC = {}
 		end
 		if not(GREYONCOOLDOWN_ONHIDE_HOOKED_ABC[button]) then
-			button.cooldown:HookScript("OnHide", GreyOnCooldown.ButtonParentDelayedUpdateHookFunc)
+			button.cooldown:HookScript("OnHide", GreyOnCooldown.ButtonParentUpdateHookFunc)
 			GREYONCOOLDOWN_ONHIDE_HOOKED_ABC[button] = true
 		end
 	end
@@ -618,14 +640,14 @@ function GreyOnCooldown:HookGOCPetActionButtonUpdate(button)
 		if (PetActionBar ~= nil and type(PetActionBar.UpdateCooldowns) == "function") then
 			hooksecurefunc(PetActionBar, "UpdateCooldowns", function(self)
 				for i = 1, GreyOnCooldown.NUM_PET_ACTION_SLOTS do
-					local button = self.actionButtons[i]
-					if (button and button.GOCUpdateCheck) then
-						button:GOCUpdateCheck()
+					local butt = self.actionButtons[i]
+					if (butt and butt.GOCUpdateCheck) then
+						butt:GOCUpdateCheck()
 					end
 				end
 			end)
+			GREYONCOOLDOWN_UPDATECOOLDOWNS_HOOKED_PAB = true
 		end
-		GREYONCOOLDOWN_UPDATECOOLDOWNS_HOOKED_PAB = true
 	end
 	if (button.GOCUpdateCheck) then
 		button:GOCUpdateCheck()
@@ -733,10 +755,6 @@ function GreyOnCooldown:HookGOCActionButtons()
 		hooksecurefunc("ActionButton_UpdateCooldown", GreyOnCooldown.ButtonUpdateHookFunc)
 		GREYONCOOLDOWN_ACTIONBUTTON_UPDATECOOLDOWN_HOOKED = true
 	end
-	if not(GREYONCOOLDOWN_ACTIONBUTTON_ONCOOLDOWNDONE_HOOKED) then
-		hooksecurefunc("ActionButtonCooldown_OnCooldownDone", GreyOnCooldown.ButtonParentDelayedUpdateHookFunc)
-		GREYONCOOLDOWN_ACTIONBUTTON_ONCOOLDOWNDONE_HOOKED = true
-	end
 end
 
 -- Function to iterate through PetActionButtons and hook them
@@ -781,29 +799,43 @@ function GreyOnCooldown:MainFunction()
 	end
 end
 
+-- Function to flush the queued LAB ActionButton updates
+GreyOnCooldown.FlushLABButtonUpdates = function()
+	local pendingUpdates = GreyOnCooldown.LABPendingButtonUpdates
+	GreyOnCooldown.LABButtonUpdateScheduled = false
+	for button, rehookCooldownDone in pairs(pendingUpdates) do
+		button:GOCUpdateCheck()
+		if rehookCooldownDone then
+			button.cooldown:HookScript("OnCooldownDone", GreyOnCooldown.LABButtonParentDelayedUpdateHookFunc)
+		end
+		pendingUpdates[button] = nil
+	end
+end
+
+-- Function to queue a delayed LAB ActionButton update, coalescing multiple updates into a single timer
+function GreyOnCooldown:QueueLABButtonUpdate(button, rehookCooldownDone)
+	if not button.GOCUpdateCheck then return end
+	local pendingUpdates = self.LABPendingButtonUpdates
+	local pendingRehook = pendingUpdates[button]
+	if pendingRehook == nil then
+		pendingUpdates[button] = (rehookCooldownDone == true)
+	elseif rehookCooldownDone then
+		pendingUpdates[button] = true
+	end
+	if not self.LABButtonUpdateScheduled then
+		self.LABButtonUpdateScheduled = true
+		C_Timer.After(0.01, GreyOnCooldown.FlushLABButtonUpdates)
+	end
+end
+
 -- Hook function to update the LAB ActionButton (self)
 GreyOnCooldown.LABButtonUpdateHookFunc = function(self)
-	if not self.GOCUpdateCheck then return end
-	local func = GreyOnCooldown.LABUpdateFuncCache1[self]
-	if not func then
-		func = function()
-			self:GOCUpdateCheck()
-			self.cooldown:HookScript("OnCooldownDone", GreyOnCooldown.ButtonParentDelayedUpdateHookFunc)
-		end
-		GreyOnCooldown.LABUpdateFuncCache1[self] = func
-	end
-	C_Timer.After(0.01, func)
+	GreyOnCooldown:QueueLABButtonUpdate(self, true)
 end
 
 -- Hook function to update the LAB ActionButton (self:GetParent())
 GreyOnCooldown.LABButtonParentUpdateHookFunc = function(self)
-	if not self:GetParent().GOCUpdateCheck then return end
-	local func = GreyOnCooldown.LABUpdateFuncCache2[self]
-	if not func then
-		func = function() self:GetParent():GOCUpdateCheck() end
-		GreyOnCooldown.LABUpdateFuncCache2[self] = func
-	end
-	C_Timer.After(0.01, func)
+	GreyOnCooldown:QueueLABButtonUpdate(self:GetParent(), false)
 end
 
 -- Function to set the hooks for a new LAB ActionButton
@@ -825,6 +857,14 @@ function GreyOnCooldown:HookGOCLABActionButtonUpdate(button)
 			if button.icon and type(button.icon.SetVertexColor) == "function" then
 				hooksecurefunc(button.icon, "SetVertexColor", GreyOnCooldown.LABButtonParentUpdateHookFunc)
 			end
+			-- Hook 'SetScript("OnCooldownDone")' (LABButton) function because we can't hook the local 'UpdateCooldown' (LABButton) function
+			if type(button.GetPassiveCooldownSpellID) ~= "function" and button.cooldown and type(button.cooldown.SetScript) == "function" then
+				hooksecurefunc(button.cooldown, "SetScript", function(self, fName, f)
+					if (fName == "OnCooldownDone" and f ~= nil) then
+						GreyOnCooldown.LABButtonUpdateHookFunc(self:GetParent())
+					end
+				end)
+			end
 			self.LABButtonsTable[button] = true
 			button.GREYONCOOLDOWN_LAB_HOOKED_BT = true
 		end
@@ -835,7 +875,7 @@ function GreyOnCooldown:HookGOCLABActionButtonUpdate(button)
 	if type(methods) == "table" then
 		if not rawget(methods, "GREYONCOOLDOWN_LAB_HOOKED_MT") then
 			if (not self.LABMethodHooks[methods]) then
-				-- Hook 'GetPassiveCooldownSpellID' (LABButton) function because we can't hook the local 'UpdateCooldown' (LABButton) function
+				-- Hook 'GetPassiveCooldownSpellID' (LABButton-Legacy) function because we can't hook the local 'UpdateCooldown' (LABButton) function
 				if type(methods.GetPassiveCooldownSpellID) == "function" then
 					hooksecurefunc(methods, "GetPassiveCooldownSpellID", GreyOnCooldown.LABButtonUpdateHookFunc)
 				end
@@ -856,6 +896,7 @@ function GreyOnCooldown:CheckAddonLAB()
 		if ((self.GOCLoadTimestamp == nil) or ((GetTime() - self.GOCLoadTimestamp) < self.CheckAddonsWindowTime)) then
 			local LibActionButton = LibStub:GetLibrary("LibActionButton-1.0", true)
 			if LibActionButton then
+				self.AddonLABIsPresent = true
 				if (not LibActionButton.GREYONCOOLDOWN_ONBUTTONUPDATE_LAB_HOOKED) then
 					LibActionButton.RegisterCallback(self, "OnButtonUpdate", function(event, button)
 						ActionButton_GreyOnCooldown_UpdateCheck(button)
@@ -874,7 +915,6 @@ function GreyOnCooldown:CheckAddonLAB()
 				LibActionButton.RegisterCallback(self, "OnButtonCreated", function(event, button)
 					GreyOnCooldown:HookGOCLABActionButtonUpdate(button)
 				end)
-				self.AddonLABIsPresent = true
 				return true
 			else
 				return false
